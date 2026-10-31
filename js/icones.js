@@ -1,0 +1,33 @@
+// Icônes au trait (24 × 24), utilisées dans les deux sites. Aucune police d'icônes à télécharger.
+(function () {
+  const t = (d, extra) => `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"${extra || ''}>${d}</svg>`;
+  window.ICO = {
+    panier: t('<circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2.5 3h2.6l2.4 11.2a1.6 1.6 0 0 0 1.6 1.3h8.6a1.6 1.6 0 0 0 1.5-1.2L21 7H6"/>'),
+    personnes: t('<circle cx="9" cy="8" r="3.2"/><path d="M3 20c.6-3.4 3-5.4 6-5.4s5.4 2 6 5.4"/><circle cx="17" cy="9" r="2.4"/><path d="M16.5 14.6c2.4.2 4 1.9 4.5 4.6"/>'),
+    bouclier: t('<path d="M12 2.6l8 3.2v5.9c0 4.9-3.4 8.9-8 10.2-4.6-1.3-8-5.3-8-10.2V5.8z" fill="currentColor" stroke="none"/><path d="M8.3 12.2l2.5 2.5 5-5.1" stroke="#fff" stroke-width="2.4"/>'),
+    camion: t('<path d="M2.5 6h11v10h-11z"/><path d="M13.5 9.5h4l3 3.2V16h-7"/><circle cx="6.5" cy="17.5" r="1.8"/><circle cx="17" cy="17.5" r="1.8"/>'),
+    casque: t('<path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="2.8" y="13.5" width="4" height="6" rx="1.6"/><rect x="17.2" y="13.5" width="4" height="6" rx="1.6"/><path d="M19.2 19.5c0 1.4-1.6 2-4.2 2h-2"/>'),
+    loupe: t('<circle cx="11" cy="11" r="6.5"/><path d="M20.5 20.5l-4.8-4.8"/>'),
+    utilisateur: t('<circle cx="12" cy="8" r="4"/><path d="M4 21c1.2-4.2 4.2-6.2 8-6.2s6.8 2 8 6.2"/>'),
+    grille: t('<rect x="3.5" y="3.5" width="7" height="7" rx="2"/><rect x="13.5" y="3.5" width="7" height="7" rx="2"/><rect x="3.5" y="13.5" width="7" height="7" rx="2"/><rect x="13.5" y="13.5" width="7" height="7" rx="2"/>'),
+    coche: t('<circle cx="12" cy="12" r="9.5" fill="currentColor" stroke="none"/><path d="M7.8 12.3l2.8 2.8 5.6-5.8" stroke="#fff" stroke-width="2.4"/>'),
+    fusee: t('<path d="M14.5 4.5c3.2-1.4 5.6-1 5.6-1s.4 2.4-1 5.6c-1.2 2.8-4.3 5.7-7.6 7.7l-3.8-3.8c2-3.3 4.9-6.4 6.8-8.5z" fill="currentColor"/><path d="M9.7 9.2L6 9.6l-2.5 2.8 4.1 1M14.8 14.3l-.4 3.7-2.8 2.5-1-4.1"/><path d="M6.6 17.4c-1.4.3-2.6 1.9-2.6 3.1 1.2 0 2.8-1.2 3.1-2.6"/>'),
+    avion: t('<path d="M21 4.5c-.8-.8-2.2-.6-3 .2L14.5 8.2 5.8 5.9 4 7.7l7.1 3.9-3.6 3.6-2.6-.4-1.4 1.4 3.5 1.5 1.5 3.5 1.4-1.4-.4-2.6 3.6-3.6 3.9 7.1 1.8-1.8-2.3-8.7L20.8 7.5c.8-.8 1-2.2.2-3z" fill="currentColor" stroke="none"/>'),
+    flamme: t('<path d="M12 21.5c-4 0-7-2.8-7-6.6 0-3.3 2.2-5.4 3.9-7.6.4 1.9 1.3 3.1 2.6 3.6-.3-3.6 1.4-6.6 4-8.4-.2 3.4 1.6 5.2 3 7 1.1 1.4 1.5 2.8 1.5 4.6 0 4-3.6 7.4-8 7.4z" fill="currentColor" stroke="none"/>'),
+    fleche: t('<path d="M5 12h14M13 6l6 6-6 6"/>'),
+    crayon: t('<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>'),
+    colis: t('<path d="M12 2.6l8.8 4.7v9.6L12 21.6l-8.8-4.7V7.3z" fill="currentColor" stroke="none"/><path d="M3.4 7.4L12 12l8.6-4.6M12 12v9.4" stroke="#8a4a14" stroke-width="1.3"/><path d="M7.6 5l8.6 4.7v3.4" stroke="#fde3c2" stroke-width="1.8"/>'),
+    telephone: t('<rect x="5.5" y="1.8" width="13" height="20.4" rx="3" fill="currentColor" stroke="none"/><rect x="7.4" y="4.4" width="9.2" height="13.6" rx="1.2" fill="#9fd6ff" stroke="none"/><path d="M10 20h4" stroke="#fff" stroke-width="1.6"/><path d="M10.2 9.2a2.6 2.6 0 1 1 1.3 4.2l-1.6.8.5-1.7" stroke="#fff" stroke-width="1.4"/>'),
+    sac: t('<path d="M8.5 9V6.8a3.5 3.5 0 0 1 7 0V9" stroke-width="2.2"/><path d="M4.6 8.5h14.8l-1.1 11.6a1.8 1.8 0 0 1-1.8 1.6H7.5a1.8 1.8 0 0 1-1.8-1.6z" fill="currentColor" stroke="none"/><circle cx="9.2" cy="11.6" r="1" fill="#fff" stroke="none"/><circle cx="14.8" cy="11.6" r="1" fill="#fff" stroke="none"/>'),
+    maison: t('<path d="M3.5 11L12 4l8.5 7"/><path d="M5.5 9.5V20h13V9.5"/><path d="M10 20v-5.5h4V20"/>'),
+    carte: t('<rect x="2.5" y="5" width="19" height="14" rx="2.6"/><path d="M2.5 9.6h19M6.5 15h4"/>'),
+    engrenage: t('<circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v2.6M12 18.6v2.6M4.2 6.2l1.9 1.8M17.9 16l1.9 1.8M2.8 12h2.6M18.6 12h2.6M4.2 17.8l1.9-1.8M17.9 8l1.9-1.8"/>'),
+    graphique: t('<path d="M3.5 20.5h17"/><rect x="5" y="11" width="3.4" height="7" rx="1" fill="currentColor"/><rect x="10.3" y="6.5" width="3.4" height="11.5" rx="1" fill="currentColor"/><rect x="15.6" y="13.5" width="3.4" height="4.5" rx="1" fill="currentColor"/>'),
+    horloge: t('<circle cx="12" cy="12" r="9"/><path d="M12 7v5.2l3.4 2"/>'),
+    alerte: t('<path d="M12 3.2l9.5 16.6H2.5z"/><path d="M12 9.5v4.6M12 17.2v.3"/>'),
+    plus: t('<path d="M12 5v14M5 12h14"/>'),
+    sortie: t('<path d="M14 4h4.5a1.5 1.5 0 0 1 1.5 1.5v13a1.5 1.5 0 0 1-1.5 1.5H14"/><path d="M10 16l-4-4 4-4M6 12h10"/>'),
+    chevron: t('<path d="M6 9l6 6 6-6"/>'),
+    message: t('<rect x="2.5" y="4.5" width="19" height="15" rx="2.5"/><path d="M3 6l9 7 9-7"/>')
+  };
+})();

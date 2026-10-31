@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Import Public · Espace équipe</title>
+  <meta name="theme-color" content="#f04d01">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23f04d01'/><text x='16' y='23' font-family='Arial' font-weight='800' font-size='15' fill='white' text-anchor='middle'>IP</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .nav-bas { grid-template-columns: repeat(5, 1fr); }
+  </style>
+</head>
+<body class="espace-equipe">
+  <header class="entete entete-equipe">
+    <a class="logo" href="#/"><span class="logo-sac" data-ico="sac"></span>Import<span>Public</span><span class="puce-equipe">Équipe</span></a>
+    <nav class="nav-haut" id="nav-haut" aria-label="Menu principal" hidden>
+      <a href="#/" data-onglet="accueil"><span data-ico="maison"></span>Accueil</a>
+      <a href="#/paiements" data-onglet="paiements"><span data-ico="carte"></span>Paiements<b class="compte-badge" id="badge-paiements" hidden></b></a>
+      <a href="#/campagnes" data-onglet="campagnes"><span data-ico="colis"></span>Campagnes</a>
+      <a href="#/demandes" data-onglet="demandes"><span data-ico="crayon"></span>Sur mesure<b class="compte-badge" id="badge-demandes" hidden></b></a>
+      <a href="#/reglages" data-onglet="reglages"><span data-ico="engrenage"></span>Réglages</a>
+    </nav>
+    <div class="entete-actions" id="entete-compte"></div>
+  </header>
+  <main id="vue"><div class="chargement">Chargement…</div></main>
+  <nav class="nav-bas" id="nav" aria-label="Navigation" hidden>
+    <a href="#/" data-onglet="accueil"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Accueil</a>
+    <a href="#/paiements" data-onglet="paiements"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="3"/><path d="M2 10h20"/></svg>Paiements</a>
+    <a href="#/campagnes" data-onglet="campagnes"><svg viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/></svg>Campagnes</a>
+    <a href="#/demandes" data-onglet="demandes"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/><rect x="3" y="3" width="18" height="18" rx="4"/></svg>Sur mesure</a>
+    <a href="#/reglages" data-onglet="reglages"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Réglages</a>
+  </nav>
+  <script src="js/config.js"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/icones.js"></script>
+  <script src="js/commun.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
