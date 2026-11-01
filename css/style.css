@@ -834,10 +834,3 @@ h1, h2, h3, .logo { color: var(--brun); letter-spacing: -.01em; }
   .ligne > .actions-ligne { flex-wrap: wrap; justify-content: flex-start; width: 100%; }
   .espace-equipe .nav-bas a { font-size: .62rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-left: 2px; padding-right: 2px; }
 }
-
-/* Connexion avec Google */
-.btn-google { background: #fff !important; color: #1f1f1f !important; border: 1.5px solid #dadce0 !important; box-shadow: none !important;
-  display: inline-flex; align-items: center; justify-content: center; gap: 10px; width: 100%; font-weight: 600; }
-.btn-google:hover { background: #f8f9fa !important; }
-.separateur { display: flex; align-items: center; gap: 10px; margin: 14px 0 4px; color: var(--encre-3); font-size: .85rem; }
-.separateur::before, .separateur::after { content: ''; flex: 1; height: 1px; background: var(--ligne); }

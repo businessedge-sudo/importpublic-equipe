@@ -1,7 +1,7 @@
 // Import Public : espace équipe (back-office)
 (function () {
   const { sb, cfg, fcfa, date, joursRestants, esc, normTel, waLien, lib, badge, jauge, msgErreur, toast, nomPays,
-          compresserImage, urlImageCampagne, occupe, txtVariante, boutonGoogle, brancherGoogle } = window.IA;
+          compresserImage, urlImageCampagne, occupe, txtVariante } = window.IA;
 
   const vue = document.getElementById('vue');
   const etat = { session: null, profil: null, groupeur: null };
@@ -127,12 +127,10 @@
     vue.innerHTML = `<div class="carte" style="max-width:420px;margin:24px auto">
       <h1>Espace équipe</h1>
       <p class="discret">Connectez-vous avec le compte créé sur le site client.</p>
-      ${boutonGoogle('Se connecter avec Google')}
       <form id="f"><label for="e">Email</label><input id="e" type="email" autocomplete="email" required>
         <label for="p">Mot de passe</label><input id="p" type="password" autocomplete="current-password" required>
         <button class="btn btn-large" style="margin-top:14px">Se connecter</button></form>
       <div id="msg"></div></div>`;
-    brancherGoogle(vue);
     document.getElementById('f').addEventListener('submit', (ev) => {
       ev.preventDefault();
       occupe(ev.target.querySelector('button'), async () => {
