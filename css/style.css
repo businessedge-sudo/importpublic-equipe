@@ -719,3 +719,118 @@ h1, h2, h3, .logo { color: var(--brun); letter-spacing: -.01em; }
 .roles-aide { margin-top: 14px; font-size: .9rem; color: var(--encre-2); }
 .roles-aide summary { cursor: pointer; font-weight: 600; color: var(--accent); }
 .roles-aide ul { padding-left: 18px; margin: 8px 0 0; display: grid; gap: 4px; }
+
+/* ==================================================================
+   v6 : variantes, retrait, Ambassadeurs Commerciaux, colis
+   ================================================================== */
+.sur-titre { margin: 0 0 2px; font-size: .78rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+
+/* Choix des variantes (boutons) */
+.groupe-variante { margin-top: 12px; }
+.groupe-variante .etiquette { display: block; font-weight: 600; font-size: .92rem; margin-bottom: 6px; }
+.choix-variante { display: flex; flex-wrap: wrap; gap: 8px; }
+.choix-variante .option { min-width: 48px; min-height: 42px; padding: 8px 14px; border: 1.5px solid var(--ligne); border-radius: 12px;
+  background: #fff; font: inherit; font-weight: 600; color: var(--brun); cursor: pointer; }
+.choix-variante .option:hover { border-color: var(--accent); }
+.choix-variante .option.actif { border-color: var(--accent); background: var(--accent-clair); color: var(--accent-fonce); box-shadow: 0 0 0 2px rgba(240, 77, 1, .15); }
+
+/* Code de retrait */
+.code-retrait { display: grid; gap: 2px; justify-items: center; text-align: center; background: #fff; border: 2px dashed var(--vert);
+  border-radius: 16px; padding: 14px 10px; margin: 12px 0; }
+.code-retrait span { font-size: .85rem; font-weight: 600; color: var(--encre-2); }
+.code-retrait b { font-size: 2.2rem; letter-spacing: .12em; color: var(--brun); font-variant-numeric: tabular-nums; }
+.code-retrait small { color: var(--encre-2); font-size: .8rem; }
+.carte-reception h2 .ico { width: 22px; height: 22px; vertical-align: -4px; margin-right: 4px; }
+
+/* Compte : référence et entrée du programme */
+.reference-client { display: grid; gap: 2px; }
+.reference-client span { font-size: .85rem; color: var(--encre-2); font-weight: 600; }
+.reference-client b { font-size: 1.6rem; letter-spacing: .08em; color: var(--brun); font-family: ui-monospace, Menlo, Consolas, monospace; }
+.reference-client small { color: var(--encre-2); }
+.carte-ac { display: flex; align-items: center; gap: 14px; text-decoration: none; color: var(--brun);
+  background: linear-gradient(110deg, #fff4ec, #ffe8d6); border: 1px solid #ffd2b3; }
+.carte-ac > div { flex: 1; display: grid; gap: 2px; min-width: 0; }
+.carte-ac span:not(.carte-ac-ico) { font-size: .88rem; color: var(--encre-2); }
+.carte-ac-ico { width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center; background: var(--accent); color: #fff; flex: none; }
+.carte-ac-ico .ico { width: 24px; height: 24px; }
+.carte-ac > .ico { width: 20px; height: 20px; color: var(--accent); flex: none; }
+
+/* Présentation du programme */
+.hero-ac { border-radius: 22px; padding: 22px 18px; margin-bottom: 18px; color: #fff;
+  background: linear-gradient(120deg, #271912 0%, #5a2a12 55%, #f04d01 130%); box-shadow: 0 12px 26px rgba(39, 25, 18, .25); }
+.hero-ac h1 { color: #fff; font-size: 1.7rem; margin: 2px 0 8px; }
+.hero-ac p { max-width: 640px; }
+.hero-ac .sur-titre { color: #ffc49c; }
+.mode-ac h2 { margin-top: 8px; }
+.mode-ico { width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center; }
+.mode-ico .ico { width: 24px; height: 24px; }
+.mode-ico.jaune { background: #fff3cf; color: #d99a00; }
+.mode-ico.bleu { background: #e3f0ff; color: var(--bleu); }
+.tableau-simple { width: 100%; border-collapse: collapse; font-size: .93rem; }
+.tableau-simple td { padding: 10px 0; border-bottom: 1px solid var(--ligne); vertical-align: top; }
+.tableau-simple .montant { text-align: right; font-weight: 700; color: var(--orange-texte); white-space: nowrap; padding-left: 12px; }
+.liste-regles { padding-left: 18px; margin: 0; display: grid; gap: 10px; font-size: .93rem; }
+
+/* Formation */
+.progression-formation { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+.progression-formation .jauge { flex: 1; }
+.module-num { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--peche); color: var(--accent-fonce);
+  font-weight: 700; flex: none; }
+.module-ligne.vu .module-num { background: transparent; color: var(--vert); }
+.module-ligne.vu .module-num .ico { width: 30px; height: 30px; }
+.module-ligne > .ico { width: 18px; height: 18px; transform: rotate(-90deg); color: var(--encre-3); }
+.module-contenu h1 { margin-top: 0; }
+.texte-module, .texte-conditions { white-space: pre-line; line-height: 1.65; font-size: .97rem; }
+.texte-conditions { max-height: 52vh; overflow-y: auto; background: #fbf8f5; border: 1px solid var(--ligne); border-radius: 12px; padding: 14px; margin: 8px 0 12px; font-size: .9rem; }
+.case-acceptation { display: flex; gap: 10px; align-items: flex-start; font-weight: 500; margin: 12px 0; cursor: pointer; }
+.case-acceptation input { width: 22px; height: 22px; min-height: 0; flex: none; margin-top: 1px; accent-color: var(--accent); }
+
+/* Espace AC */
+.entete-ac { display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; margin-bottom: 10px; }
+.entete-ac h1 { margin: 0; }
+.entete-ac-droite { display: flex; align-items: center; gap: 8px; }
+.code-ac { font-family: ui-monospace, Menlo, Consolas, monospace; font-weight: 700; background: var(--peche); color: var(--accent-fonce);
+  padding: 4px 10px; border-radius: 8px; letter-spacing: .08em; }
+.onglets-ac { display: flex; gap: 6px; overflow-x: auto; padding: 2px 2px 8px; margin: 0 -2px 10px; scrollbar-width: thin; }
+.onglets-ac a { flex: none; display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 12px; background: #fff;
+  border: 1px solid var(--ligne); text-decoration: none; color: var(--encre-2); font-weight: 600; font-size: .88rem; }
+.onglets-ac a .ico { width: 17px; height: 17px; }
+.onglets-ac a.actif { background: var(--accent); border-color: var(--accent); color: #fff; }
+.contenu-ac .tuiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.contenu-ac .tuile b { font-size: 1.55rem; }
+.carte-lien p { margin: 0 0 10px; }
+.lien-copie { display: flex; gap: 8px; align-items: stretch; }
+.lien-copie input { flex: 1; min-width: 0; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .88rem; background: #fbf8f5; }
+.lien-copie .btn { flex: none; }
+.qr-carte .qr { width: min(240px, 100%); aspect-ratio: 1; margin: 6px auto 0; background: #fff; padding: 8px; border-radius: 14px; border: 1px solid var(--ligne); }
+.qr-carte .qr svg { display: block; width: 100%; height: 100%; }
+.ligne small { display: block; }
+.ligne-commission { color: var(--vert); font-weight: 600; }
+.motif { color: var(--ko); }
+.btn .ico { width: 18px; height: 18px; }
+
+@media (min-width: 960px) {
+  .hero-ac { padding: 32px 36px; }
+  .hero-ac h1 { font-size: 2.3rem; }
+  .contenu-ac .tuiles { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .contenu-ac .tuiles:has(> :nth-child(3):last-child) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+/* Équipe : colis et réseau */
+.saisie-colis { display: grid; gap: 10px; }
+.saisie-colis .reference { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 1.2rem; letter-spacing: .08em; text-transform: uppercase; }
+.resultat-colis { margin-top: 12px; }
+.ligne .montant-ligne { font-weight: 700; color: var(--orange-texte); white-space: nowrap; }
+.tableau-bareme input { max-width: 120px; }
+.tableau-bareme td { padding: 8px 0; border-bottom: 1px solid var(--ligne); }
+.tableau-bareme td:last-child { text-align: right; }
+.nav-bas { overflow-x: auto; }
+.nav-bas a { min-width: 60px; }
+.contenu-ac .ligne > .ico { width: 18px; height: 18px; transform: rotate(-90deg); color: var(--encre-3); flex: none; }
+/* Téléphone : les lignes avec boutons passent sur deux niveaux, le texte garde toute la largeur */
+@media (max-width: 639px) {
+  .ligne:has(> .actions-ligne) { flex-wrap: wrap; }
+  .ligne:has(> .actions-ligne) > div:first-child { flex: 1 1 100% !important; }
+  .ligne > .actions-ligne { flex-wrap: wrap; justify-content: flex-start; width: 100%; }
+  .espace-equipe .nav-bas a { font-size: .62rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-left: 2px; padding-right: 2px; }
+}

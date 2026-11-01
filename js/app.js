@@ -1,7 +1,7 @@
 // Import Public : espace équipe (back-office)
 (function () {
   const { sb, cfg, fcfa, date, joursRestants, esc, normTel, waLien, lib, badge, jauge, msgErreur, toast, nomPays,
-          compresserImage, urlImageCampagne, occupe } = window.IA;
+          compresserImage, urlImageCampagne, occupe, txtVariante } = window.IA;
 
   const vue = document.getElementById('vue');
   const etat = { session: null, profil: null, groupeur: null };
@@ -65,9 +65,12 @@
   const estAdmin = () => etat.profil && etat.profil.role === 'admin';
   // Paiements et chiffrage des devis : admin et assistants
   const estFinance = () => etat.profil && ['admin', 'assistant', 'groupeur'].includes(etat.profil.role);
+  // Point de retrait partenaire : uniquement l'onglet Colis
+  const estPartenaire = () => etat.profil && etat.profil.role === 'partenaire';
   // Ce que chaque rôle peut ouvrir
   const peut = (onglet) => ({ accueil: estStaff(), campagnes: estStaff(), demandes: estStaff(),
-                              paiements: estFinance(), reglages: estAdmin() }[onglet] || false);
+                              paiements: estFinance(), colis: estStaff() || estPartenaire(),
+                              reseau: estFinance(), reglages: estAdmin() }[onglet] || false);
   const tel = (p) => (p && p.telephone) || '';
 
   function router() {
@@ -76,31 +79,34 @@
     const m = chemin.split('/').filter(Boolean);
     const params = new URLSearchParams(qs || '');
 
-    document.getElementById('nav').hidden = !estStaff();
-    document.getElementById('nav-haut').hidden = !estStaff();
+    const accesEquipe = estStaff() || estPartenaire();
+    document.getElementById('nav').hidden = !accesEquipe;
+    document.getElementById('nav-haut').hidden = !accesEquipe;
     const I = window.ICO;
     document.getElementById('entete-compte').innerHTML = etat.session
       ? `${estStaff() && etat.niveauData ? `<a class="lien-data" href="${cfg.urlData}" target="_blank" rel="noopener">${I.graphique}<span>Analyses</span></a>` : ''}
          <span class="lien-compte">${I.utilisateur}<span>${esc(((etat.profil && etat.profil.nom_complet) || etat.session.user.email).split(' ')[0])}</span></span>
          <button class="btn btn-second btn-petit" id="sortir" aria-label="Se déconnecter">${I.sortie}<span class="txt-sortir">Sortir</span></button>` : '';
     if (estStaff()) majBadges();
+    document.querySelector('.puce-equipe').textContent = estPartenaire() ? 'Point de retrait' : 'Équipe';
     const s = document.getElementById('sortir');
     if (s) s.addEventListener('click', () => sb.auth.signOut());
 
-    if (!estStaff()) return vueConnexion();
+    if (!accesEquipe) return vueConnexion();
 
     // Menus visibles selon le rôle
     document.querySelectorAll('.nav-bas a, .nav-haut a').forEach((a) => { a.hidden = !peut(a.dataset.onglet); });
     const nb = document.querySelectorAll('.nav-bas a:not([hidden])').length;
-    document.getElementById('nav').style.gridTemplateColumns = `repeat(${nb}, 1fr)`;
+    document.getElementById('nav').style.gridTemplateColumns = `repeat(${nb}, minmax(56px, 1fr))`;
 
     const onglet = { '': 'accueil', paiements: 'paiements', campagnes: 'campagnes', campagne: 'campagnes',
-                     demandes: 'demandes', demande: 'demandes', reglages: 'reglages' }[m[0] || ''];
+                     demandes: 'demandes', demande: 'demandes', colis: 'colis', reseau: 'reseau', reglages: 'reglages' }[m[0] || ''];
+    if (estPartenaire() && onglet !== 'colis') { location.hash = '#/colis'; return; }
     document.querySelectorAll('.nav-bas a, .nav-haut a').forEach((a) => a.classList.toggle('actif', a.dataset.onglet === onglet));
     window.scrollTo(0, 0);
     if (onglet && !peut(onglet)) { location.hash = '#/'; return; }
     const routes = { '': vueAccueil, paiements: vuePaiements, campagnes: vueCampagnes, campagne: vueCampagne,
-                     demandes: vueDemandes, demande: vueDemande, reglages: vueReglages };
+                     demandes: vueDemandes, demande: vueDemande, colis: vueColis, reseau: vueReseau, reglages: vueReglages };
     vue.innerHTML = '<div class="chargement">Chargement…</div>';
     Promise.resolve((routes[m[0] || ''] || vueAccueil)(m[1], params)).catch((e) => {
       vue.innerHTML = `<div class="carte"><div class="alerte alerte-ko">${esc(msgErreur(e))}</div>
@@ -205,6 +211,14 @@
       </div></article>`;
   }
 
+  const colisDe = (o) => (Array.isArray(o.colis) ? o.colis[0] : o.colis) || null;
+  // « Pointure : 40, 41 » (une ligne par caractéristique) -> [{ nom: 'Pointure', options: ['40', '41'] }]
+  const lireVariantes = (texte) => String(texte || '').split('\n').map((l) => {
+    const [nom, reste] = l.split(/:(.*)/s);
+    const options = [...new Set(String(reste || '').split(',').map((x) => x.trim()).filter(Boolean))];
+    return nom && nom.trim() && options.length ? { nom: nom.trim(), options } : null;
+  }).filter(Boolean);
+
   const ligneCampagne = (c) => `<a class="ligne" href="#/campagne/${c.id}">
       <div class="vignette" style="background-image:url('${esc(urlImageCampagne(c.image_url))}')"></div>
       <div style="flex:1;min-width:0"><div class="ligne-titre">${esc(c.titre)}</div>
@@ -276,7 +290,7 @@
       if (r.error) throw r.error;
       if (!r.data) { vue.innerHTML = '<div class="carte vide">Campagne introuvable.</div>'; return; }
       c = r.data;
-      const o = await sb.from('commandes').select('*, profils(nom_complet,telephone,pays,region)').eq('campagne_id', id).order('created_at');
+      const o = await sb.from('commandes').select('*, profils(nom_complet,telephone,pays,region), colis(reference,statut)').eq('campagne_id', id).order('created_at');
       if (o.error) throw o.error;
       commandes = o.data;
     }
@@ -296,16 +310,20 @@
         <div class="boutons">
           ${suivant ? `<button class="btn" id="avancer">${esc(ACTION[suivant])}</button>` : ''}
           ${c.statut === 'ouverte' ? `<button class="btn btn-ko" id="echec">Clôturer en échec</button>` : ''}
+          ${['arrivee', 'terminee'].includes(c.statut) && payees.some((o) => o.statut === 'payee' && !colisDe(o))
+            ? `<button class="btn btn-second" id="gen-colis">Créer les colis manquants</button>` : ''}
         </div>
+        ${c.statut === 'arrivee' ? `<p class="aide">Un colis avec code de retrait est créé pour chaque commande payée. Les points de retrait l'enregistrent puis le remettent dans l'onglet <a href="#/colis">Colis</a>.</p>` : ''}
         <div id="zone-wa"></div>
       </div>
       <div class="carte"><h2>Commandes</h2>
         ${commandes.length ? commandes.map((o) => `
           <div class="ligne">
             <div style="flex:1;min-width:0"><div class="ligne-titre">${esc(o.profils.nom_complet || 'Client')}</div>
-              <small>${o.quantite} × · ${fcfa(o.montant_total)} · ${esc(o.profils.region || nomPays(o.profils.pays))} · ${o.profils.telephone ? `<a href="${waLien(o.profils.telephone)}" target="_blank" rel="noopener">${esc(o.profils.telephone)}</a>` : ''}</small></div>
-            <div class="actions-ligne">${badge(o.statut)}
-              ${o.statut === 'payee' && ['arrivee', 'terminee'].includes(c.statut) ? `<button class="btn btn-ok btn-petit" data-livrer="${o.id}">Livré</button>` : ''}
+              <small>${o.quantite} ×${txtVariante(o.variante) ? ' ' + esc(txtVariante(o.variante)) : ''} · ${fcfa(o.montant_total)} · ${esc(o.profils.region || nomPays(o.profils.pays))} · ${o.profils.telephone ? `<a href="${waLien(o.profils.telephone)}" target="_blank" rel="noopener">${esc(o.profils.telephone)}</a>` : ''}</small>
+              ${o.assistant_id || o.referent_id || colisDe(o) ? `<small class="discret">${o.assistant_id ? 'Commande assistée par un AC' : ''}${o.assistant_id && o.referent_id ? ' · ' : ''}${o.referent_id ? 'Client parrainé' : ''}${colisDe(o) ? ` · colis ${esc(colisDe(o).reference)} (${esc(lib(colisDe(o).statut))})` : ''}</small>` : ''}</div>
+            <div class="actions-ligne">${badge(o.confirmation === 'en_attente_client' && o.statut === 'en_attente_paiement' ? 'en_attente_client' : o.statut)}
+              ${o.statut === 'payee' && ['arrivee', 'terminee'].includes(c.statut) && !colisDe(o) ? `<button class="btn btn-ok btn-petit" data-livrer="${o.id}">Livré</button>` : ''}
               ${o.statut === 'a_rembourser' && estFinance() ? `<button class="btn btn-second btn-petit" data-rembourser="${o.id}">Remboursé</button>` : ''}
               ${o.statut === 'en_attente_paiement' ? `<button class="btn btn-ko btn-petit" data-annuler="${o.id}">Annuler</button>` : ''}
               ${o.statut === 'payee' && estFinance() ? `<button class="btn btn-ko btn-petit" data-retirer-cmd="${o.id}">Retirer</button>` : ''}
@@ -328,6 +346,9 @@
           <div><label for="quota">Quota (unités)</label><input id="quota" type="number" inputmode="numeric" min="1" required value="${esc(c.quota)}"></div>
           <div><label for="ft">Transport/unité si HT</label><input id="ft" type="number" inputmode="numeric" min="0" value="${esc(c.frais_transport_unitaire || '')}"></div>
         </div>
+        <label for="variantes">Variantes (facultatif)</label>
+        <textarea id="variantes" rows="3" placeholder="Une caractéristique par ligne, options séparées par des virgules&#10;Pointure : 40, 41, 42, 43&#10;Couleur : Noir, Blanc">${esc((c.variantes || []).map((v) => `${v.nom} : ${(v.options || []).join(', ')}`).join('\n'))}</textarea>
+        <div class="aide">Le client devra choisir une option pour chaque ligne. Évitez de les modifier une fois des commandes passées.</div>
         <label for="pref">Prix habituel à Lomé (F, facultatif)</label>
         <input id="pref" type="number" inputmode="numeric" min="1" value="${esc(c.prix_reference || '')}" placeholder="Ex. : 29990">
         <div class="aide">S'il est renseigné, il s'affiche barré à côté de votre prix, avec le pourcentage d'économie. Indiquez un prix réellement constaté.</div>
@@ -367,7 +388,8 @@
           prix_unitaire: parseInt(val('prix'), 10), type_prix: val('tp'),
           frais_transport_unitaire: val('ft') ? parseInt(val('ft'), 10) : null,
           prix_reference: val('pref') ? parseInt(val('pref'), 10) : null,
-          quota: parseInt(val('quota'), 10), date_cloture: new Date(val('cloture')).toISOString(), mode_transport: val('mode')
+          quota: parseInt(val('quota'), 10), date_cloture: new Date(val('cloture')).toISOString(), mode_transport: val('mode'),
+          variantes: lireVariantes(val('variantes'))
         };
         let r;
         if (nouvelle) {
@@ -400,10 +422,9 @@
 
     const avancer = document.getElementById('avancer');
     if (avancer) avancer.addEventListener('click', () => occupe(avancer, async () => {
-      if (suivant === 'terminee' && !confirm('Terminer la campagne ? Les commandes encore payées seront marquées livrées.')) return;
+      if (suivant === 'terminee' && !confirm('Terminer la campagne ? Les colis pas encore remis restent à remettre (avec le code de retrait) : les commissions ne sont validées qu\'à la remise.')) return;
       const { error } = await sb.from('campagnes').update({ statut: suivant }).eq('id', c.id);
       if (error) { toast(msgErreur(error), 'ko'); return; }
-      if (suivant === 'terminee') await sb.from('commandes').update({ statut: 'livree' }).eq('campagne_id', c.id).eq('statut', 'payee');
       toast('Étape mise à jour');
       await vueCampagne(c.id);
       proposerWa(suivant);
@@ -421,6 +442,13 @@
         proposerWa('echec_quota');
       });
     });
+
+    const gen = document.getElementById('gen-colis');
+    if (gen) gen.addEventListener('click', () => occupe(gen, async () => {
+      const { data: n, error } = await sb.rpc('generer_colis_campagne', { p_campagne: c.id });
+      if (error) { toast(msgErreur(error), 'ko'); return; }
+      toast(`${n} colis créé(s)`); router();
+    }));
 
     vue.querySelectorAll('[data-livrer]').forEach((b) => b.addEventListener('click', () => occupe(b, async () => {
       const { error } = await sb.from('commandes').update({ statut: 'livree' }).eq('id', b.dataset.livrer);
@@ -644,6 +672,339 @@
         if (await definir(data.id, document.getElementById('role-ajout').value)) { toast((data.nom_complet || 'Membre') + ' ajouté'); router(); }
       });
     });
+  }
+
+  // ------------------------------------------------------------------
+  // Colis : points de retrait (réception +50 F, remise contre code +50 F)
+  // ------------------------------------------------------------------
+  async function vueColis(_, params) {
+    const I = window.ICO;
+    // Points accessibles : tous pour l'équipe, les siens pour un partenaire
+    let q = sb.from('points_retrait').select('*').order('principal', { ascending: false }).order('nom');
+    if (estPartenaire()) q = q.eq('responsable_id', etat.profil.id);
+    const { data: points, error } = await q;
+    if (error) throw error;
+    if (!points.length) {
+      vue.innerHTML = `<div class="carte vide"><h1>Colis</h1><p>Aucun point de retrait ne vous est attribué. Contactez Import Public.</p></div>`;
+      return;
+    }
+    const pointId = params.get('point') || points[0].id;
+    const point = points.find((p) => p.id === pointId) || points[0];
+    const statut = params.get('statut') || '';
+    const [t, liste] = await Promise.all([
+      sb.rpc('tableau_point', { p_point: point.id }),
+      sb.rpc('liste_colis_point', { p_point: point.id, p_statut: statut || null })
+    ]);
+    if (t.error) throw t.error;
+    if (liste.error) throw liste.error;
+    const tb = t.data;
+    const filtres = [['', 'Tous'], ['attendu', 'Attendus'], ['recu', 'En attente de retrait'], ['remis', 'Remis'], ['non_recupere', 'Non récupérés'], ['litige', 'Litiges']];
+
+    vue.innerHTML = `
+      <div class="titre-section" style="margin-top:0"><h1 style="margin:0">Colis</h1>
+        ${points.length > 1 ? `<select id="choix-point" style="width:auto">${points.map((p) => `<option value="${p.id}"${p.id === point.id ? ' selected' : ''}>${esc(p.nom)}</option>`).join('')}</select>`
+          : `<span class="discret">${esc(point.nom)}</span>`}</div>
+      <div class="tuiles">
+        <div class="tuile bleu"><span class="tuile-ico">${I.camion}</span><b>${tb.attendus}</b><span>Attendus</span></div>
+        <div class="tuile orange"><span class="tuile-ico">${I.horloge}</span><b>${tb.en_attente}</b><span>En attente de retrait</span></div>
+        <div class="tuile vert"><span class="tuile-ico">${I.coche}</span><b>${tb.remis}</b><span>Remis</span></div>
+        <div class="tuile rouge"><span class="tuile-ico">${I.alerte}</span><b>${tb.non_recuperes + tb.litiges}</b><span>Non récupérés ou litiges</span></div>
+        <div class="tuile jaune"><span class="tuile-ico">${I.carte}</span><b>${fcfa(tb.remu_due)}</b><span>Rémunération à payer</span></div>
+        <div class="tuile violet"><span class="tuile-ico">${I.graphique}</span><b>${fcfa(tb.remu_payee)}</b><span>Rémunération payée</span></div>
+      </div>
+      <div class="deux-colonnes"><div class="colonne">
+        <form class="carte saisie-colis" id="form-colis">
+          <h2>Scanner ou saisir un colis</h2>
+          <label for="ref-colis">Référence du colis</label>
+          <input id="ref-colis" class="reference" required placeholder="C7K2M9Q" autocomplete="off" autocapitalize="characters">
+          <div class="boutons">
+            <button type="button" class="btn" id="recu-bon">${I.colis}Reçu en bon état</button>
+            <button type="button" class="btn btn-second" id="recu-abime">Reçu endommagé</button>
+          </div>
+          <hr>
+          <label for="code-retrait">Code de retrait donné par le client</label>
+          <input id="code-retrait" inputmode="numeric" maxlength="7" placeholder="482 913" autocomplete="off">
+          <button type="button" class="btn btn-ok btn-large" id="remettre">${I.coche}Remettre le colis</button>
+          <div class="resultat-colis" id="resultat-colis"></div>
+          <p class="aide">Rémunération : ${fcfa(50)} à l'enregistrement d'un colis reçu, ${fcfa(50)} à la remise au client (barème en vigueur).
+            Ne remettez jamais un colis sans le bon code.</p>
+        </form>
+      </div><div class="colonne">
+        <div class="carte">
+          <div class="filtres">${filtres.map(([k, l]) => `<button class="${k === statut ? 'actif' : ''}" data-s="${k}">${l}</button>`).join('')}</div>
+          <div class="grille-lignes">${liste.data.length ? liste.data.map((c) => `
+            <div class="ligne">
+              <div style="flex:1;min-width:0"><div class="ligne-titre">${esc(c.reference)} · ${esc(c.client || 'Client')}</div>
+                <small>${esc(c.objet || '')}${c.etat === 'endommage' ? ' · endommagé' : ''} · ${c.remis_le ? 'remis le ' + date(c.remis_le, true) : c.recu_le ? 'reçu le ' + date(c.recu_le, true) : 'créé le ' + date(c.created_at)}</small></div>
+              <div class="actions-ligne">${badge(c.statut)}
+                ${c.telephone && ['recu', 'non_recupere'].includes(c.statut) ? `<a class="btn btn-wa btn-petit" target="_blank" rel="noopener" href="${waLien(c.telephone,
+                  `Bonjour ${(c.client || '').split(' ')[0]}, votre colis Import Public (réf. ${c.reference}) vous attend au point de retrait ${point.nom}${point.adresse ? ', ' + point.adresse : ''}${point.horaires ? ' (' + point.horaires + ')' : ''}. Présentez votre code de retrait, visible dans votre compte sur ${cfg.urlSite}`)}">Prévenir</a>` : ''}
+                ${c.statut === 'recu' ? `<button class="btn btn-second btn-petit" data-non-recupere="${esc(c.reference)}">Non récupéré</button>` : ''}
+                ${['recu', 'non_recupere'].includes(c.statut) ? `<button class="btn btn-ko btn-petit" data-litige="${esc(c.reference)}">Litige</button>` : ''}
+              </div></div>`).join('') : '<p class="discret">Aucun colis.</p>'}</div>
+        </div>
+        ${estFinance() && tb.remu_due > 0 ? `<form class="carte" id="form-payer-point">
+          <h2>Payer ce point : ${fcfa(tb.remu_due)}</h2>
+          <div class="rangee"><div><label for="pp-moyen">Moyen</label><select id="pp-moyen"><option value="tmoney">T-Money</option><option value="flooz">Flooz</option><option value="especes">Espèces</option><option value="virement">Virement</option></select></div>
+            <div><label for="pp-ref">Référence du paiement</label><input id="pp-ref" required placeholder="Réf. de la transaction"></div></div>
+          <button class="btn btn-large" style="margin-top:12px">Enregistrer le versement</button>
+        </form>` : ''}
+      </div></div>`;
+
+    const aller = (p) => { const u = new URLSearchParams({ point: point.id, statut, ...p }); location.hash = '#/colis?' + u; };
+    const cp = document.getElementById('choix-point');
+    if (cp) cp.addEventListener('change', () => aller({ point: cp.value, statut: '' }));
+    vue.querySelectorAll('.filtres button').forEach((b) => b.addEventListener('click', () => aller({ statut: b.dataset.s })));
+    const ref = () => document.getElementById('ref-colis').value.trim().toUpperCase();
+    const resultat = (html) => { document.getElementById('resultat-colis').innerHTML = html; };
+
+    const recevoir = (etatColis) => (ev) => {
+      if (!ref()) { toast('Saisissez la référence du colis', 'ko'); return; }
+      occupe(ev.currentTarget, async () => {
+        const { data, error: e } = await sb.rpc('recevoir_colis', { p_reference: ref(), p_etat: etatColis, p_note: null });
+        if (e) { resultat(`<div class="alerte alerte-ko">${esc(msgErreur(e))}</div>`); return; }
+        resultat(`<div class="alerte alerte-ok">Colis ${esc(data.reference)} enregistré${etatColis === 'endommage' ? ' (endommagé, signalé en litige)' : ''}.
+          ${data.telephone ? `<div class="boutons"><a class="btn btn-wa btn-petit" target="_blank" rel="noopener" href="${waLien(data.telephone,
+            `Bonjour ${(data.client || '').split(' ')[0]}, votre colis Import Public (réf. ${data.reference}) est arrivé au point de retrait ${data.point}${data.adresse ? ', ' + data.adresse : ''}${data.horaires ? ' (' + data.horaires + ')' : ''}. Présentez votre code de retrait, visible dans votre compte sur ${cfg.urlSite}`)}">Prévenir ${esc((data.client || 'le client').split(' ')[0])}</a></div>` : ''}</div>`);
+        document.getElementById('ref-colis').value = '';
+      });
+    };
+    document.getElementById('recu-bon').addEventListener('click', recevoir('bon'));
+    document.getElementById('recu-abime').addEventListener('click', recevoir('endommage'));
+    document.getElementById('remettre').addEventListener('click', (ev) => {
+      const code = document.getElementById('code-retrait').value.replace(/\D/g, '');
+      if (!ref() || code.length !== 6) { toast('Référence et code à 6 chiffres requis', 'ko'); return; }
+      occupe(ev.currentTarget, async () => {
+        const { data, error: e } = await sb.rpc('remettre_colis', { p_reference: ref(), p_code: code });
+        if (e) { resultat(`<div class="alerte alerte-ko">${esc(msgErreur(e))}</div>`); return; }
+        resultat(`<div class="alerte alerte-${data.ok ? 'ok' : 'ko'}">${esc(data.message)}</div>`);
+        if (data.ok) { document.getElementById('ref-colis').value = ''; document.getElementById('code-retrait').value = ''; }
+      });
+    });
+    const signaler = (s, libelle) => (b) => b.addEventListener('click', () => {
+      const note = prompt(libelle + ' : précisez (facultatif)') ;
+      if (note === null) return;
+      occupe(b, async () => {
+        const { error: e } = await sb.rpc('signaler_colis', { p_reference: b.dataset.nonRecupere || b.dataset.litige, p_statut: s, p_note: note || null });
+        if (e) toast(msgErreur(e), 'ko'); else { toast('Colis signalé'); router(); }
+      });
+    });
+    vue.querySelectorAll('[data-non-recupere]').forEach(signaler('non_recupere', 'Colis non récupéré'));
+    vue.querySelectorAll('[data-litige]').forEach(signaler('litige', 'Litige'));
+    const fp = document.getElementById('form-payer-point');
+    if (fp) fp.addEventListener('submit', (ev) => {
+      ev.preventDefault();
+      occupe(fp.querySelector('button'), async () => {
+        const { error: e } = await sb.rpc('payer_point', { p_point: point.id, p_moyen: document.getElementById('pp-moyen').value,
+          p_reference: document.getElementById('pp-ref').value.trim(), p_note: null });
+        if (e) { toast(msgErreur(e), 'ko'); return; }
+        toast('Versement enregistré'); router();
+      });
+    });
+  }
+
+  // ------------------------------------------------------------------
+  // Réseau : ambassadeurs, commissions, points de retrait, barème
+  // ------------------------------------------------------------------
+  async function vueReseau(rub, params) {
+    const r = rub || 'ambassadeurs';
+    const onglets = [['ambassadeurs', 'Ambassadeurs'], ['commissions', 'Commissions'], ['points', 'Points de retrait'], ['bareme', 'Barème et versements']];
+    const corps = await ({ ambassadeurs: reseauAmbassadeurs, commissions: reseauCommissions, points: reseauPoints, bareme: reseauBareme }[r] || reseauAmbassadeurs)(params);
+    vue.innerHTML = `<h1>Réseau</h1>
+      <div class="filtres">${onglets.map(([k, l]) => `<button class="${k === r ? 'actif' : ''}" data-r="${k}">${l}</button>`).join('')}</div>
+      ${corps.html}`;
+    vue.querySelectorAll('[data-r]').forEach((b) => b.addEventListener('click', () => { location.hash = '#/reseau/' + b.dataset.r; }));
+    if (corps.brancher) corps.brancher();
+  }
+
+  async function reseauAmbassadeurs() {
+    const { data, error } = await sb.rpc('liste_ambassadeurs');
+    if (error) throw error;
+    const tot = (k) => data.reduce((s, a) => s + Number(a[k] || 0), 0);
+    return {
+      html: `
+      <div class="tuiles">
+        <div class="tuile vert"><span class="tuile-ico">${window.ICO.personnes}</span><b>${data.filter((a) => a.statut === 'actif').length}</b><span>Ambassadeurs actifs</span></div>
+        <div class="tuile bleu"><span class="tuile-ico">${window.ICO.utilisateur}</span><b>${tot('clients')}</b><span>Clients apportés</span></div>
+        <div class="tuile orange"><span class="tuile-ico">${window.ICO.panier}</span><b>${tot('assistees')}</b><span>Commandes assistées</span></div>
+        <div class="tuile jaune"><span class="tuile-ico">${window.ICO.horloge}</span><b>${fcfa(tot('en_attente'))}</b><span>En attente de livraison</span></div>
+        <div class="tuile rouge"><span class="tuile-ico">${window.ICO.carte}</span><b>${fcfa(tot('validees'))}</b><span>À payer</span></div>
+        <div class="tuile violet"><span class="tuile-ico">${window.ICO.coche}</span><b>${fcfa(tot('payees'))}</b><span>Déjà payé</span></div>
+      </div>
+      <div class="carte grille-lignes">${data.length ? data.map((a) => `
+        <div class="ligne">
+          <div style="flex:1;min-width:0"><div class="ligne-titre">${esc(a.nom || a.email)} <small class="discret">${esc(a.code)}</small></div>
+            <small>${esc(a.region || '—')} · ${a.telephone ? `<a href="${waLien(a.telephone)}" target="_blank" rel="noopener">${esc(a.telephone)}</a>` : ''} · depuis le ${date(a.adhere_le)} · conditions ${esc(a.conditions_version)}</small>
+            <small>${a.clients} client(s) apporté(s) · ${a.assistees} commande(s) assistée(s) · en attente ${fcfa(a.en_attente)} · <b>à payer ${fcfa(a.validees)}</b> · payé ${fcfa(a.payees)}</small>
+            <div id="payer-${a.id}"></div></div>
+          <div class="actions-ligne">${badge(a.statut)}
+            ${Number(a.validees) > 0 ? `<button class="btn btn-ok btn-petit" data-payer="${a.id}" data-montant="${a.validees}">Payer</button>` : ''}
+            ${estAdmin() ? (a.statut === 'actif' ? `<button class="btn btn-ko btn-petit" data-suspendre="${a.id}">Suspendre</button>`
+              : `<button class="btn btn-second btn-petit" data-reactiver="${a.id}">Réactiver</button>`) : ''}</div>
+        </div>`).join('') : '<p class="discret">Aucun ambassadeur pour le moment. Les clients deviennent ambassadeurs depuis leur compte sur le site.</p>'}</div>`,
+      brancher() {
+        vue.querySelectorAll('[data-payer]').forEach((b) => b.addEventListener('click', () => {
+          const zone = document.getElementById('payer-' + b.dataset.payer);
+          zone.innerHTML = `<form class="rangee" style="margin-top:8px">
+            <div><select class="pa-moyen"><option value="tmoney">T-Money</option><option value="flooz">Flooz</option><option value="especes">Espèces</option></select></div>
+            <div><input class="pa-ref" required placeholder="Référence du transfert"></div>
+            <div><button class="btn btn-ok btn-petit">Confirmer ${fcfa(b.dataset.montant)}</button></div></form>`;
+          zone.querySelector('form').addEventListener('submit', (ev) => {
+            ev.preventDefault();
+            occupe(zone.querySelector('button'), async () => {
+              const { error } = await sb.rpc('payer_ambassadeur', { p_ambassadeur: b.dataset.payer, p_moyen: zone.querySelector('.pa-moyen').value,
+                p_reference: zone.querySelector('.pa-ref').value.trim(), p_note: null });
+              if (error) { toast(msgErreur(error), 'ko'); return; }
+              toast('Versement enregistré, commissions marquées payées'); router();
+            });
+          });
+        }));
+        const statutAC = (id, s) => occupe(document.querySelector(`[data-suspendre="${id}"],[data-reactiver="${id}"]`), async () => {
+          const motif = s === 'suspendu' ? prompt('Motif de la suspension (visible par l\'ambassadeur) :') : null;
+          if (s === 'suspendu' && !motif) return;
+          const { error } = await sb.rpc('definir_statut_ambassadeur', { p_ambassadeur: id, p_statut: s, p_motif: motif });
+          if (error) { toast(msgErreur(error), 'ko'); return; }
+          toast(s === 'suspendu' ? 'Ambassadeur suspendu' : 'Ambassadeur réactivé'); router();
+        });
+        vue.querySelectorAll('[data-suspendre]').forEach((b) => b.addEventListener('click', () => statutAC(b.dataset.suspendre, 'suspendu')));
+        vue.querySelectorAll('[data-reactiver]').forEach((b) => b.addEventListener('click', () => statutAC(b.dataset.reactiver, 'actif')));
+      }
+    };
+  }
+
+  async function reseauCommissions(params) {
+    const s = params.get('statut') || 'validee';
+    let q = sb.from('commissions').select('*, ambassadeurs(code, profils(nom_complet)), profils(nom_complet), commandes(campagnes(titre))')
+      .order('cree_le', { ascending: false }).limit(200);
+    if (s !== 'toutes') q = q.eq('statut', s);
+    const { data, error } = await q;
+    if (error) throw error;
+    const nomAC = (c) => (c.ambassadeurs && c.ambassadeurs.profils && c.ambassadeurs.profils.nom_complet) || (c.profils_amb || {}).nom_complet || 'Ambassadeur';
+    return {
+      html: `
+      <div class="filtres">${[['en_attente', 'En attente'], ['validee', 'Validées (à payer)'], ['payee', 'Payées'], ['annulee', 'Annulées'], ['toutes', 'Toutes']].map(([k, l]) =>
+        `<button class="${k === s ? 'actif' : ''}" data-s="${k}">${l}</button>`).join('')}</div>
+      <div class="carte grille-lignes">${data.length ? data.map((c) => `
+        <div class="ligne">
+          <div style="flex:1;min-width:0"><div class="ligne-titre">${fcfa(c.montant)} · ${esc(lib(c.type))} · ${esc(nomAC(c))}</div>
+            <small>${esc((c.commandes && c.commandes.campagnes && c.commandes.campagnes.titre) || '')} · client ${esc((c.profils && c.profils.nom_complet) || '')} · ${date(c.cree_le)}</small>
+            ${c.motif ? `<small class="motif">${esc(c.motif)}</small>` : ''}</div>
+          <div class="actions-ligne">${badge(c.statut)}
+            ${['en_attente', 'validee'].includes(c.statut) ? `<button class="btn btn-ko btn-petit" data-annuler-com="${c.id}">Annuler</button>` : ''}</div>
+        </div>`).join('') : '<p class="discret">Rien ici.</p>'}</div>
+      <p class="aide">Les commissions sont créées automatiquement au paiement, validées à la remise du colis et payées depuis l'onglet Ambassadeurs.</p>`,
+      brancher() {
+        vue.querySelectorAll('[data-s]').forEach((b) => b.addEventListener('click', () => { location.hash = '#/reseau/commissions?statut=' + b.dataset.s; }));
+        vue.querySelectorAll('[data-annuler-com]').forEach((b) => b.addEventListener('click', () => {
+          const motif = prompt('Motif de l\'annulation (visible par l\'ambassadeur) :');
+          if (!motif) return;
+          occupe(b, async () => {
+            const { error } = await sb.rpc('annuler_commission', { p_commission: b.dataset.annulerCom, p_motif: motif });
+            if (error) toast(msgErreur(error), 'ko'); else { toast('Commission annulée'); router(); }
+          });
+        }));
+      }
+    };
+  }
+
+  async function reseauPoints() {
+    const { data, error } = await sb.from('points_retrait').select('*, profils(nom_complet,telephone,email)').order('principal', { ascending: false }).order('nom');
+    if (error) throw error;
+    const formPoint = (p) => `
+      <form class="form-point" data-id="${p ? p.id : ''}">
+        <div class="rangee"><div><label>Nom</label><input name="nom" required value="${esc(p ? p.nom : '')}" placeholder="Ex. : Point Kara Centre"></div>
+          <div><label>Région</label><input name="region" value="${esc(p ? p.region || '' : '')}" placeholder="Ex. : Kara"></div></div>
+        <div class="rangee"><div><label>Ville</label><input name="ville" value="${esc(p ? p.ville || '' : '')}"></div>
+          <div><label>Téléphone du point</label><input name="telephone" type="tel" value="${esc(p ? p.telephone || '' : '')}"></div></div>
+        <label>Adresse / repère</label><input name="adresse" value="${esc(p ? p.adresse || '' : '')}" placeholder="Ex. : Grand marché, à côté de la pharmacie">
+        <label>Horaires</label><input name="horaires" value="${esc(p ? p.horaires || '' : '')}" placeholder="Ex. : Lun-Sam 8h-18h">
+        <label>Responsable (email ou numéro WhatsApp de son compte)</label>
+        <input name="responsable" value="${esc(p && p.profils ? p.profils.email || p.profils.telephone || '' : '')}" placeholder="La personne doit avoir un compte sur le site">
+        <label class="case-acceptation"><input type="checkbox" name="actif" ${!p || p.actif ? 'checked' : ''}> Point actif (proposé aux clients)</label>
+        <button class="btn btn-petit">${p ? 'Enregistrer' : 'Créer le point'}</button>
+      </form>`;
+    return {
+      html: `
+      <div class="deux-colonnes"><div class="colonne">
+        ${data.map((p) => `<div class="carte">
+          <div style="display:flex;justify-content:space-between;gap:10px"><h2>${esc(p.nom)}</h2>${p.actif ? badge('actif') : '<span class="badge badge-neutre">Inactif</span>'}</div>
+          <p class="discret">${esc([p.adresse, p.ville, p.region].filter(Boolean).join(' · ') || 'Adresse à compléter')}${p.horaires ? ' · ' + esc(p.horaires) : ''}</p>
+          <p class="discret">Responsable : ${p.profils ? esc(p.profils.nom_complet || p.profils.email) : 'aucun (géré par l\'équipe)'}</p>
+          ${estAdmin() ? `<details><summary class="lien-texte">Modifier</summary>${formPoint(p)}</details>` : ''}
+          <a class="btn btn-second btn-petit" href="#/colis?point=${p.id}">Voir les colis</a>
+        </div>`).join('')}
+      </div><div class="colonne">
+        ${estAdmin() ? `<div class="carte"><h2>Nouveau point de retrait</h2>${formPoint(null)}
+          <p class="aide">Le responsable reçoit le rôle « Point de retrait » : il se connecte à l'espace équipe et ne voit que l'onglet Colis de son point.</p></div>` : ''}
+      </div></div>`,
+      brancher() {
+        vue.querySelectorAll('.form-point').forEach((f) => f.addEventListener('submit', (ev) => {
+          ev.preventDefault();
+          occupe(f.querySelector('button'), async () => {
+            const v = (n) => f.elements[n].value.trim();
+            let responsable_id = null;
+            if (v('responsable')) {
+              const col = v('responsable').includes('@') ? 'email' : 'telephone';
+              const val = col === 'email' ? v('responsable').toLowerCase() : normTel(v('responsable'));
+              const { data: pr } = await sb.from('profils').select('id,role').ilike(col, val).maybeSingle();
+              if (!pr) { toast('Aucun compte trouvé pour le responsable', 'ko'); return; }
+              responsable_id = pr.id;
+              if (pr.role === 'client') {
+                const { error: er } = await sb.rpc('definir_role', { p_profil: pr.id, p_role: 'partenaire' });
+                if (er) { toast(msgErreur(er), 'ko'); return; }
+              }
+            }
+            const ligne = { nom: v('nom'), region: v('region') || null, ville: v('ville') || null, telephone: v('telephone') ? normTel(v('telephone')) : null,
+                            adresse: v('adresse') || null, horaires: v('horaires') || null, responsable_id, actif: f.elements.actif.checked };
+            const r = f.dataset.id ? await sb.from('points_retrait').update(ligne).eq('id', f.dataset.id) : await sb.from('points_retrait').insert(ligne);
+            if (r.error) { toast(msgErreur(r.error), 'ko'); return; }
+            toast('Point enregistré'); router();
+          });
+        }));
+      }
+    };
+  }
+
+  async function reseauBareme() {
+    const [{ data: params, error }, { data: versements }, { count: nbModules }, { data: cond }] = await Promise.all([
+      sb.from('parametres').select('*').order('cle'),
+      sb.from('versements').select('*, ambassadeurs(code, profils(nom_complet)), points_retrait(nom)').order('paye_le', { ascending: false }).limit(50),
+      sb.from('formation_modules').select('id', { count: 'exact', head: true }).eq('actif', true),
+      sb.from('conditions_ac').select('version,publie_le').eq('en_vigueur', true).maybeSingle()
+    ]);
+    if (error) throw error;
+    return {
+      html: `
+      <div class="deux-colonnes"><div class="colonne">
+        <form class="carte" id="form-bareme"><h2>Barème</h2>
+          <table class="tableau-bareme" style="width:100%"><tbody>${params.map((p) => `
+            <tr><td>${esc(p.libelle)}</td><td><input type="number" min="0" step="1" data-cle="${esc(p.cle)}" value="${Number(p.valeur)}" ${estAdmin() ? '' : 'disabled'}></td></tr>`).join('')}</tbody></table>
+          ${estAdmin() ? '<button class="btn" style="margin-top:12px">Enregistrer le barème</button>' : ''}
+          <p class="aide">Un changement s'applique aux commissions créées après. Les commissions déjà enregistrées gardent leur montant.</p>
+        </form>
+        <div class="carte"><h2>Programme</h2>
+          <p>${nbModules || 0} modules de formation actifs · conditions en vigueur : <b>${esc(cond ? cond.version : '—')}</b>${cond ? ' (publiées le ' + date(cond.publie_le) + ')' : ''}.</p>
+          <p class="aide">Pour modifier un module ou publier une nouvelle version des conditions (les ambassadeurs devront la réaccepter), demandez-le à Claude ou modifiez les tables formation_modules et conditions_ac dans Supabase.</p></div>
+      </div><div class="colonne">
+        <div class="carte"><h2>Derniers versements</h2>
+          <div class="grille-lignes">${(versements || []).length ? versements.map((v) => `
+            <div class="ligne"><div style="flex:1;min-width:0"><div class="ligne-titre">${fcfa(v.montant)} · ${esc(v.ambassadeurs ? 'AC ' + ((v.ambassadeurs.profils && v.ambassadeurs.profils.nom_complet) || v.ambassadeurs.code) : 'Point ' + ((v.points_retrait && v.points_retrait.nom) || ''))}</div>
+              <small>${date(v.paye_le, true)} · ${esc(lib(v.moyen))}${v.reference ? ' · réf. ' + esc(v.reference) : ''}</small></div></div>`).join('') : '<p class="discret">Aucun versement.</p>'}</div></div>
+      </div></div>`,
+      brancher() {
+        const f = document.getElementById('form-bareme');
+        if (f && estAdmin()) f.addEventListener('submit', (ev) => {
+          ev.preventDefault();
+          occupe(f.querySelector('button'), async () => {
+            for (const i of f.querySelectorAll('[data-cle]')) {
+              const { error: e } = await sb.from('parametres').update({ valeur: Number(i.value) }).eq('cle', i.dataset.cle);
+              if (e) { toast(msgErreur(e), 'ko'); return; }
+            }
+            toast('Barème enregistré');
+          });
+        });
+      }
+    };
   }
 
   demarrer();
