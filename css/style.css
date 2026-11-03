@@ -834,3 +834,47 @@ h1, h2, h3, .logo { color: var(--brun); letter-spacing: -.01em; }
   .ligne > .actions-ligne { flex-wrap: wrap; justify-content: flex-start; width: 100%; }
   .espace-equipe .nav-bas a { font-size: .62rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-left: 2px; padding-right: 2px; }
 }
+
+/* ==================================================================
+   v8 : produits à l'étude, opérations, coûts, utilisateurs
+   ================================================================== */
+.onglets-campagnes a { flex: none; display: inline-flex; align-items: center; gap: 6px; border: 1.5px solid var(--ligne); background: #fff; border-radius: 99px;
+  padding: 7px 14px; font-size: .88rem; font-weight: 600; color: var(--encre-2); text-decoration: none; }
+.onglets-campagnes a .ico { width: 16px; height: 16px; }
+.onglets-campagnes a.actif { background: var(--brun); border-color: var(--brun); color: #fff; }
+.grille-pistes { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+@media (min-width: 640px) { .grille-pistes { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1100px) { .grille-pistes { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.carte-piste { display: grid; gap: 10px; text-decoration: none; color: var(--brun); margin: 0; transition: transform .15s; }
+.carte-piste:hover { transform: translateY(-2px); }
+.piste-tete { display: flex; gap: 10px; align-items: flex-start; }
+.piste-tete small { display: block; color: var(--encre-2); font-size: .8rem; }
+.piste-vignette { width: 48px; height: 48px; border-radius: 12px; background: #f3efe9 center/cover; flex: none; display: grid; place-items: center; color: var(--encre-3); }
+.piste-vignette .ico { width: 20px; height: 20px; }
+.piste-progression { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
+.piste-progression span { height: 5px; border-radius: 3px; background: #eee6dd; }
+.piste-progression span.fait { background: var(--accent-vif, var(--accent)); }
+.piste-chiffres { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.piste-chiffres small { display: block; font-size: .72rem; color: var(--encre-2); }
+.piste-chiffres b { font-size: .95rem; }
+.marge-ok { color: var(--vert, #0a8f45); } .marge-alerte { color: #c77700; } .marge-ko { color: #d1242f; } .marge-neutre { color: var(--encre-3); }
+.sous-titre-form { font-size: 1rem; margin: 22px 0 2px; padding-top: 14px; border-top: 1px solid var(--ligne); color: var(--accent-fonce); }
+.liens-piste { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; font-size: .88rem; }
+.marge-principale { display: grid; gap: 2px; border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+.marge-principale small { font-weight: 600; font-size: .8rem; }
+.marge-principale b { font-size: 2rem; line-height: 1.1; }
+.marge-principale span { font-size: .82rem; }
+.marge-fond-ok { background: #e6f6ec; color: #0a6b35; } .marge-fond-alerte { background: #fff3dc; color: #8a5300; }
+.marge-fond-ko { background: #fdecec; color: #a61b25; } .marge-fond-neutre { background: #f5f1ec; color: var(--encre-2); }
+.tableau-calcul { width: 100%; border-collapse: collapse; font-size: .9rem; margin-bottom: 8px; }
+.tableau-calcul td { padding: 6px 0; border-bottom: 1px solid var(--ligne); }
+.tableau-calcul td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+.tableau-calcul .total-ligne td { font-weight: 700; border-bottom: 2px solid var(--brun); }
+.checklist-ops { display: grid; gap: 2px; }
+.op { display: flex; gap: 12px; align-items: flex-start; padding: 9px 0; border-bottom: 1px solid var(--ligne); }
+.op small { display: block; color: var(--encre-2); font-size: .8rem; }
+.op-case { width: 28px; height: 28px; flex: none; border-radius: 8px; border: 2px solid #d6cdc2; background: #fff; display: grid; place-items: center; cursor: pointer; padding: 0; color: var(--vert, #0a8f45); }
+.op.faite .op-case { border-color: transparent; background: transparent; }
+.op.faite .op-case .ico { width: 28px; height: 28px; }
+.op.faite b { color: var(--encre-2); }
+.form-cout { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--ligne); }

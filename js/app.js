@@ -99,14 +99,15 @@
     const nb = document.querySelectorAll('.nav-bas a:not([hidden])').length;
     document.getElementById('nav').style.gridTemplateColumns = `repeat(${nb}, minmax(56px, 1fr))`;
 
-    const onglet = { '': 'accueil', paiements: 'paiements', campagnes: 'campagnes', campagne: 'campagnes',
-                     demandes: 'demandes', demande: 'demandes', colis: 'colis', reseau: 'reseau', reglages: 'reglages' }[m[0] || ''];
+    const onglet = { '': 'accueil', paiements: 'paiements', campagnes: 'campagnes', campagne: 'campagnes', pistes: 'campagnes', piste: 'campagnes',
+                     demandes: 'demandes', demande: 'demandes', colis: 'colis', reseau: 'reseau', reglages: 'reglages', utilisateurs: 'reglages' }[m[0] || ''];
     if (estPartenaire() && onglet !== 'colis') { location.hash = '#/colis'; return; }
     document.querySelectorAll('.nav-bas a, .nav-haut a').forEach((a) => a.classList.toggle('actif', a.dataset.onglet === onglet));
     window.scrollTo(0, 0);
     if (onglet && !peut(onglet)) { location.hash = '#/'; return; }
     const routes = { '': vueAccueil, paiements: vuePaiements, campagnes: vueCampagnes, campagne: vueCampagne,
-                     demandes: vueDemandes, demande: vueDemande, colis: vueColis, reseau: vueReseau, reglages: vueReglages };
+                     demandes: vueDemandes, demande: vueDemande, colis: vueColis, reseau: vueReseau, reglages: vueReglages,
+                     pistes: ops.vuePistes, piste: ops.vuePiste, utilisateurs: ops.vueUtilisateurs };
     vue.innerHTML = '<div class="chargement">Chargement…</div>';
     Promise.resolve((routes[m[0] || ''] || vueAccueil)(m[1], params)).catch((e) => {
       vue.innerHTML = `<div class="carte"><div class="alerte alerte-ko">${esc(msgErreur(e))}</div>
@@ -146,7 +147,7 @@
   // ------------------------------------------------------------------
   async function vueAccueil() {
     const compte = (q) => q.then((r) => r.count || 0);
-    const [aVerifier, nouvelles, acceptees, ouvertes, aRembourser, campagnes, enCours] = await Promise.all([
+    const [aVerifier, nouvelles, acceptees, ouvertes, aRembourser, campagnes, enCours, etudes] = await Promise.all([
       compte(sb.from('paiements').select('id', { count: 'exact', head: true }).eq('statut', 'initie')),
       compte(sb.from('demandes').select('id', { count: 'exact', head: true }).eq('statut', 'nouvelle')),
       compte(sb.from('demandes').select('id', { count: 'exact', head: true }).eq('statut', 'acceptee')),
@@ -154,7 +155,8 @@
       compte(sb.from('commandes').select('id', { count: 'exact', head: true }).eq('statut', 'a_rembourser')),
       sb.from('campagnes').select('id,titre,statut,quota,quantite_payee,nb_clients,date_cloture,image_url,prix_unitaire')
         .not('statut', 'in', '(terminee,echec_quota)').order('date_cloture').limit(24),
-      compte(sb.from('campagnes').select('id', { count: 'exact', head: true }).in('statut', ['commandee', 'entrepot_chine', 'en_transit', 'arrivee']))
+      compte(sb.from('campagnes').select('id', { count: 'exact', head: true }).in('statut', ['commandee', 'entrepot_chine', 'en_transit', 'arrivee'])),
+      compte(sb.from('pistes').select('id', { count: 'exact', head: true }).not('statut', 'in', '(lancee,abandonnee)'))
     ]);
     const g = etat.groupeur || {};
     const I = window.ICO;
@@ -173,7 +175,7 @@
           <p class="hero-equipe-resume">${aFaire.length ? 'Aujourd\'hui : ' + esc(aFaire.join(', ')) + '.' : 'Tout est à jour. Rien n\'attend une action.'}</p>
         </div>
         <div class="boutons">
-          ${estFinance() ? `<a class="btn btn-blanc" href="#/campagne/nouvelle">${I.plus}Nouvelle campagne</a>` : ''}
+          ${estFinance() ? `<a class="btn btn-blanc" href="#/piste/nouvelle">${I.loupe}Étudier un produit</a>` : ''}
           ${estFinance() && aVerifier ? `<a class="btn btn-hero-second" href="#/paiements">${I.carte}Vérifier les paiements</a>` : ''}
         </div>
       </section>
@@ -182,6 +184,7 @@
       <div class="tuiles">
         ${estFinance() ? `<a class="tuile orange" href="#/paiements"><span class="tuile-ico">${I.carte}</span><b>${aVerifier}</b><span>Paiements à vérifier</span></a>` : ''}
         <a class="tuile bleu" href="#/demandes?statut=nouvelle"><span class="tuile-ico">${I.crayon}</span><b>${nouvelles}</b><span>Demandes à chiffrer</span></a>
+        <a class="tuile bleu" href="#/pistes"><span class="tuile-ico">${I.loupe}</span><b>${etudes}</b><span>Produits à l'étude</span></a>
         <a class="tuile vert" href="#/campagnes"><span class="tuile-ico">${I.colis}</span><b>${ouvertes}</b><span>Campagnes ouvertes</span></a>
         <a class="tuile violet" href="#/campagnes"><span class="tuile-ico">${I.avion}</span><b>${enCours}</b><span>Commandes en route</span></a>
         <a class="tuile rouge" href="#/campagnes"><span class="tuile-ico">${I.alerte}</span><b>${aRembourser}</b><span>À rembourser</span></a>
@@ -276,7 +279,7 @@
     const { data, error } = await sb.from('campagnes')
       .select('id,titre,statut,quota,quantite_payee,date_cloture,image_url').order('created_at', { ascending: false }).limit(100);
     if (error) throw error;
-    vue.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+    vue.innerHTML = `${ops.ongletsCampagnes('campagnes')}<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
         <h1 style="margin:0">Campagnes</h1><a class="btn btn-petit" href="#/campagne/nouvelle">+ Nouvelle</a></div>
       <div class="carte grille-lignes">${data.length ? data.map(ligneCampagne).join('') : '<p class="discret">Aucune campagne. Créez la première.</p>'}</div>`;
   }
@@ -299,6 +302,7 @@
     const i = SUITE_CAMPAGNE.indexOf(c.statut);
     const suivant = i >= 0 && i < SUITE_CAMPAGNE.length - 1 ? SUITE_CAMPAGNE[i + 1] : null;
     const payees = commandes.filter((o) => ['payee', 'livree'].includes(o.statut));
+    const sections = id !== 'nouvelle' ? await ops.sectionsCampagne(c, payees) : { html: '', brancher() {} };
 
     vue.innerHTML = `
       <a class="retour" href="#/campagnes">← Campagnes</a>
@@ -328,6 +332,7 @@
               ${o.statut === 'en_attente_paiement' ? `<button class="btn btn-ko btn-petit" data-annuler="${o.id}">Annuler</button>` : ''}
               ${o.statut === 'payee' && estFinance() ? `<button class="btn btn-ko btn-petit" data-retirer-cmd="${o.id}">Retirer</button>` : ''}
             </div></div>`).join('') : '<p class="discret">Aucune commande pour le moment.</p>'}</div>
+      ${sections.html}
       </div>`}
       <div class="colonne">
       <form class="carte" id="form-c">
@@ -406,6 +411,7 @@
     });
 
     if (nouvelle) return;
+    sections.brancher();
 
     // Liens WhatsApp vers les clients payés, après un changement d'étape
     const proposerWa = (statut) => {
@@ -624,6 +630,7 @@
           <li><b>Assistant</b> : accueil, paiements (vérifier, valider), campagnes, sur mesure (chiffrer les devis).</li>
           <li><b>Représentant</b> : accueil, campagnes, sur mesure (suivi et remise des colis). Pas les paiements.</li>
           <li>Les <b>analyses</b> se partagent à part, depuis le site data (bouton Partager).</li></ul></details>
+        <a class="btn btn-second btn-large" href="#/utilisateurs" style="margin-top:12px">${window.ICO.personnes}Voir tous les utilisateurs et gérer les rôles</a>
         <hr>
         <form id="form-ajout">
           <label for="cherche">Ajouter un membre</label>
@@ -1006,6 +1013,9 @@
       }
     };
   }
+
+  // Produits à l'étude, opérations, coûts, utilisateurs (operations.js)
+  const ops = window.IP_OPS({ etat, vue, router: () => router(), estFinance, estAdmin, estStaff });
 
   demarrer();
 })();
