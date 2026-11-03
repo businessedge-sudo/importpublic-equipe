@@ -29,8 +29,8 @@
     const { data } = await sb.auth.getSession();
     etat.session = data.session;
     await chargerProfil();
-    sb.auth.onAuthStateChange(async (evt, session) => {
-      if (evt === 'SIGNED_IN' || evt === 'SIGNED_OUT') { etat.session = session; await chargerProfil(); router(); }
+    sb.auth.onAuthStateChange((evt, session) => {
+      if (evt === 'SIGNED_IN' || evt === 'SIGNED_OUT') { etat.session = session; setTimeout(async () => { await chargerProfil(); router(); }, 0); }
     });
     window.addEventListener('hashchange', router);
     router();
