@@ -878,3 +878,4 @@ h1, h2, h3, .logo { color: var(--brun); letter-spacing: -.01em; }
 .op.faite .op-case .ico { width: 28px; height: 28px; }
 .op.faite b { color: var(--encre-2); }
 .form-cout { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--ligne); }
+.pastille-maj { flex: none; font-size: .7rem; font-weight: 700; color: #fff; background: var(--accent); border-radius: 99px; padding: 3px 8px; }

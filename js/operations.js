@@ -301,7 +301,8 @@ window.IP_OPS = function (ctx) {
 
     const html = `
       ${actif ? `<div class="carte"><h2>Suivi des opérations</h2>
-        <p class="discret">Étapes internes, plus fines que celles vues par les clients. Cochez au fur et à mesure ; la date est enregistrée.</p>
+        <p class="discret">Cochez au fur et à mesure : chaque étape apparaît <b>aussitôt dans le suivi des clients</b> concernés, avec la date (vos notes restent internes).
+          Les étapes clés font aussi avancer la campagne : fournisseur payé → Commandée, reçu à l'entrepôt → Entrepôt Chine, départ → En transit, retiré à Lomé → Arrivée (création des colis et codes de retrait).</p>
         <div class="checklist-ops">${OPERATIONS.map(([k, l, etapeClient]) => {
           const o = faites[k];
           return `<div class="op${o ? ' faite' : ''}">
