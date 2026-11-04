@@ -882,3 +882,122 @@ h1, h2, h3, .logo { color: var(--brun); letter-spacing: -.01em; }
 .aide-chiffrage { margin: 4px 0 12px; padding: 10px 12px; border: 1px dashed #ffc49c; border-radius: 12px; background: #fffaf5; }
 .aide-chiffrage summary { cursor: pointer; font-weight: 700; color: var(--accent-fonce); }
 .resultat-chiffrage { margin: 10px 0 8px; font-size: .92rem; }
+
+/* ===================== v11 : notifications, application, messagerie ===================== */
+.lien-texte { background: none; border: 0; padding: 6px 0; font: inherit; font-weight: 600; color: var(--accent-fonce); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+details > summary.lien-texte { list-style: none; display: inline-block; }
+details > summary.lien-texte::-webkit-details-marker { display: none; }
+
+/* Cloche */
+#cloche { display: inline-flex; }
+.btn-cloche { position: relative; background: none; border: 0; padding: 8px; cursor: pointer; color: var(--encre); border-radius: 50%; display: grid; place-items: center; }
+.btn-cloche:hover { background: #f1ede6; }
+.btn-cloche .ico { width: 24px; height: 24px; }
+.btn-cloche .compte-badge { position: absolute; top: 0; right: -2px; margin: 0; min-width: 18px; height: 18px; font-size: .68rem; border: 2px solid var(--papier); box-sizing: content-box; }
+.panneau-notifs { position: fixed; z-index: 60; top: 62px; right: 12px; width: min(380px, calc(100vw - 24px)); max-height: min(70vh, 560px);
+  background: var(--papier); border: 1px solid var(--ligne); border-radius: var(--rayon); box-shadow: 0 12px 40px rgba(29,27,24,.18);
+  display: flex; flex-direction: column; overflow: hidden; }
+.panneau-tete { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; border-bottom: 1px solid var(--ligne); }
+.panneau-liste { overflow-y: auto; flex: 1; }
+.notif { display: grid; gap: 2px; padding: 12px 14px; border-bottom: 1px solid var(--ligne); text-decoration: none; color: var(--encre); }
+.notif:hover { background: #faf7f2; }
+.notif span { color: var(--encre-2); font-size: .92rem; }
+.notif small { color: var(--encre-3); font-size: .78rem; }
+.notif.non-lue { background: var(--accent-clair); }
+.notif.non-lue b::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); margin-right: 6px; vertical-align: middle; }
+.panneau-pied { padding: 10px 14px; border-top: 1px solid var(--ligne); }
+.panneau-pied a { display: inline-flex; gap: 6px; align-items: center; font-weight: 600; text-decoration: none; font-size: .9rem; }
+.panneau-pied .ico { width: 16px; height: 16px; }
+
+/* Carte « Alertes et application » et invitation */
+.carte-notifs h2 { display: flex; align-items: center; gap: 8px; }
+.carte-notifs h2 .ico { width: 22px; height: 22px; color: var(--accent); }
+.ok-ligne { display: flex; gap: 8px; align-items: center; color: var(--ok); font-weight: 600; }
+.ok-ligne .ico { width: 20px; height: 20px; }
+.sep-install { border-top: 1px dashed var(--ligne); margin-top: 14px; padding-top: 12px; }
+.etapes-ios { margin: 6px 0 10px; padding-left: 20px; }
+.etapes-ios li { margin-bottom: 4px; }
+.invite-notifs { position: fixed; left: 12px; right: 12px; bottom: calc(86px + env(safe-area-inset-bottom)); z-index: 40; background: var(--encre); color: #fff;
+  border-radius: 16px; padding: 14px; display: grid; gap: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.25); transform: translateY(20px); opacity: 0; transition: .3s; max-width: 520px; margin: 0 auto; }
+.invite-notifs.visible { transform: none; opacity: 1; }
+.invite-notifs > div:first-child { display: flex; gap: 12px; align-items: flex-start; }
+.invite-notifs > div:first-child .ico { width: 26px; height: 26px; flex: none; color: #ffb48a; }
+.invite-notifs p { margin: 0; font-size: .93rem; }
+.invite-actions { display: flex; gap: 14px; align-items: center; justify-content: flex-end; }
+.invite-notifs .lien-texte { color: #fff; }
+@media (min-width: 900px) { .invite-notifs { bottom: 24px; left: auto; right: 24px; width: 420px; } }
+
+/* Messagerie */
+.chat { display: flex; flex-direction: column; background: var(--papier); border: 1px solid var(--ligne); border-radius: var(--rayon); overflow: hidden;
+  height: 70vh; min-height: 360px; }
+.chat-fil { flex: 1; overflow-y: auto; padding: 12px; background: #f3efe8; display: flex; flex-direction: column; gap: 6px; }
+.chat-vide { margin: auto; text-align: center; color: var(--encre-3); max-width: 300px; }
+.chat-jour { text-align: center; margin: 8px 0; }
+.chat-jour span { background: #e7e1d6; color: var(--encre-2); font-size: .75rem; padding: 3px 10px; border-radius: 99px; font-weight: 600; text-transform: capitalize; }
+.msg { display: flex; flex-direction: column; max-width: 82%; }
+.msg-moi { align-self: flex-end; align-items: flex-end; }
+.msg-eux { align-self: flex-start; align-items: flex-start; }
+.msg-bulle { padding: 8px 12px 6px; border-radius: 16px; background: var(--papier); box-shadow: 0 1px 1px rgba(0,0,0,.06); overflow-wrap: anywhere; min-width: 80px; }
+.msg-moi .msg-bulle { background: #ffe3d1; border-bottom-right-radius: 6px; }
+.msg-eux .msg-bulle { border-bottom-left-radius: 6px; }
+.msg-bulle p { margin: 0; }
+.msg-bulle a { color: var(--info); }
+.msg-auteur { display: block; font-size: .76rem; font-weight: 700; color: var(--accent-fonce); margin-bottom: 2px; }
+.msg-meta { display: block; text-align: right; font-size: .7rem; color: var(--encre-3); margin-top: 2px; }
+.msg-supprime { font-style: italic; color: var(--encre-3); }
+.msg-image { display: block; margin: 2px -6px 6px; }
+.msg-image img { border-radius: 12px; max-height: 280px; width: auto; max-width: 100%; }
+.msg-image-attente { display: grid; place-items: center; width: 200px; height: 140px; background: #eee6da; border-radius: 12px; color: var(--encre-3); font-size: .85rem; }
+.msg-fichier { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--encre) !important; background: rgba(0,0,0,.04); padding: 8px 10px; border-radius: 10px; margin-bottom: 4px; }
+.msg-fichier span { display: grid; flex: 1; min-width: 0; }
+.msg-fichier b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .9rem; }
+.msg-fichier .ico { width: 22px; height: 22px; flex: none; }
+.msg-actions { display: flex; gap: 10px; margin-top: 2px; }
+.msg-actions button { background: none; border: 0; padding: 2px 0; font: inherit; font-size: .74rem; color: var(--encre-3); cursor: pointer; text-decoration: underline; }
+.msg-edition { width: 100%; min-width: 220px; }
+.msg-edition-actions { display: flex; gap: 8px; margin-top: 6px; }
+.chat-emojis { display: grid; grid-template-columns: repeat(auto-fill, minmax(40px, 1fr)); gap: 2px; padding: 8px; border-top: 1px solid var(--ligne); max-height: 170px; overflow-y: auto; }
+.chat-emojis button { font-size: 1.45rem; background: none; border: 0; padding: 4px; border-radius: 8px; cursor: pointer; }
+.chat-emojis button:hover { background: #f1ede6; }
+.chat-apercu { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-top: 1px solid var(--ligne); background: #faf7f2; }
+.chat-apercu img { width: 48px; height: 48px; object-fit: cover; border-radius: 8px; }
+.chat-apercu .ico { width: 28px; height: 28px; }
+.chat-apercu span { display: grid; flex: 1; min-width: 0; }
+.chat-apercu b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .9rem; }
+.chat-apercu button { background: none; border: 0; font-size: 1.1rem; cursor: pointer; padding: 6px; }
+.chat-saisie { display: flex; align-items: flex-end; gap: 4px; padding: 8px; border-top: 1px solid var(--ligne); }
+.chat-saisie textarea { flex: 1; resize: none; min-height: 44px; max-height: 140px; border-radius: 22px; padding: 11px 14px; margin: 0; line-height: 1.35; }
+.chat-btn { background: none; border: 0; width: 40px; height: 44px; display: grid; place-items: center; color: var(--encre-2); cursor: pointer; border-radius: 50%; flex: none; }
+.chat-btn .ico { width: 24px; height: 24px; }
+.chat-envoyer { width: 44px; height: 44px; border-radius: 50%; border: 0; background: var(--accent); color: #fff; display: grid; place-items: center; cursor: pointer; flex: none; }
+.chat-envoyer .ico { width: 20px; height: 20px; }
+.chat-envoyer:disabled { opacity: .5; }
+.chat-entete { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; }
+.chat-entete h1 { margin: 0; }
+.point-nouveau { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--accent); margin-left: 4px; vertical-align: top; }
+.nav-bas a { position: relative; }
+.nav-bas a .point-nouveau { position: absolute; top: 6px; left: calc(50% + 8px); margin: 0; }
+
+/* Boîte de réception de l'équipe */
+.boite { display: grid; gap: 0; background: var(--papier); border: 1px solid var(--ligne); border-radius: var(--rayon); overflow: hidden; }
+.conv { display: grid; grid-template-columns: 44px 1fr auto; gap: 12px; align-items: center; padding: 12px 14px; border-bottom: 1px solid var(--ligne); text-decoration: none; color: var(--encre); }
+.conv:last-child { border-bottom: 0; }
+.conv:hover { background: #faf7f2; }
+.conv-avatar { width: 44px; height: 44px; border-radius: 50%; background: var(--accent-clair); color: var(--accent-fonce); display: grid; place-items: center; font-weight: 800; }
+.conv-txt { min-width: 0; }
+.conv-txt b, .conv-txt span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.conv-txt span { color: var(--encre-2); font-size: .9rem; }
+.conv.non-lue .conv-txt span { color: var(--encre); font-weight: 600; }
+.conv small { color: var(--encre-3); font-size: .78rem; text-align: right; display: grid; gap: 4px; justify-items: end; }
+.conv-fiche { display: grid; gap: 6px; }
+.conv-fiche .ligne-info { display: flex; justify-content: space-between; gap: 10px; font-size: .9rem; }
+@media (min-width: 900px) {
+  .messagerie-equipe { display: grid; grid-template-columns: 1fr 300px; gap: 16px; align-items: start; }
+}
+
+/* Bouton WhatsApp sur toutes les pages : on laisse de la place en bas pour ne rien masquer */
+body.avec-wa main { padding-bottom: 72px; }
+.nav-bas a .badge-nav { position: absolute; top: 3px; left: calc(50% + 6px); margin: 0; min-width: 16px; height: 16px; font-size: .62rem; padding: 0 4px; }
+
+/* Espace équipe : 8 onglets en bas, on fait défiler plutôt que de chevaucher */
+.espace-equipe .nav-bas a { white-space: nowrap; font-size: .68rem; min-width: 64px; }

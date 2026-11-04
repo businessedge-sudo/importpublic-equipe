@@ -4,7 +4,10 @@
           compresserImage, urlImageCampagne, occupe, txtVariante } = window.IA;
 
   const vue = document.getElementById('vue');
-  const etat = { session: null, profil: null, groupeur: null };
+  const etat = { session: null, profil: null, groupeur: null, canal: null };
+  const notifs = window.IP_NOTIFS({ origine: 'equipe', getSession: () => etat.session,
+    surNotif: (n) => { if (n.lien && n.lien.startsWith('#/messages')) majBadges(); } });
+  const chat = window.IP_CHAT({ equipe: true });
 
   // Ordre de la chaîne logistique d'une campagne
   const SUITE_CAMPAGNE = ['brouillon', 'ouverte', 'quota_atteint', 'commandee', 'entrepot_chine', 'en_transit', 'arrivee', 'terminee'];
@@ -30,8 +33,11 @@
     etat.session = data.session;
     await chargerProfil();
     sb.auth.onAuthStateChange((evt, session) => {
-      if (evt === 'SIGNED_IN' || evt === 'SIGNED_OUT') { etat.session = session; setTimeout(async () => { await chargerProfil(); router(); }, 0); }
+      if (evt === 'SIGNED_IN' || evt === 'SIGNED_OUT') { etat.session = session; setTimeout(async () => { await chargerProfil(); router(); notifs.demarrer(); }, 0); }
     });
+    notifs.demarrer();
+    // Pastille « Messages » tenue à jour en direct
+    if (etat.session) sb.channel('conv-equipe').on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, () => majBadges()).subscribe();
     window.addEventListener('hashchange', router);
     router();
   }
@@ -52,11 +58,13 @@
   }
   // Pastilles de comptage dans le menu (paiements à vérifier, demandes à chiffrer)
   async function majBadges() {
-    const [p, d] = await Promise.all([
+    const [p, d, c] = await Promise.all([
       estFinance() ? sb.from('paiements').select('id', { count: 'exact', head: true }).eq('statut', 'initie') : Promise.resolve({ count: 0 }),
-      sb.from('demandes').select('id', { count: 'exact', head: true }).eq('statut', 'nouvelle')
+      sb.from('demandes').select('id', { count: 'exact', head: true }).eq('statut', 'nouvelle'),
+      estSupport() ? sb.from('conversations').select('dernier_msg_le,lu_equipe_le').eq('dernier_de_equipe', false) : Promise.resolve({ data: [] })
     ]);
-    [['badge-paiements', p.count], ['badge-demandes', d.count]].forEach(([id, n]) => {
+    const nonLus = (c.data || []).filter((x) => new Date(x.dernier_msg_le) > new Date(x.lu_equipe_le)).length;
+    [['badge-paiements', p.count], ['badge-demandes', d.count], ['badge-messages', nonLus], ['badge-messages-bas', nonLus]].forEach(([id, n]) => {
       const el = document.getElementById(id); if (!el) return;
       el.textContent = n || ''; el.hidden = !n;
     });
@@ -67,13 +75,17 @@
   const estFinance = () => etat.profil && ['admin', 'assistant', 'groupeur'].includes(etat.profil.role);
   // Point de retrait partenaire : uniquement l'onglet Colis
   const estPartenaire = () => etat.profil && etat.profil.role === 'partenaire';
+  // Messagerie clients : admin et assistants (même règle que la base, est_support)
+  const estSupport = () => etat.profil && ['admin', 'assistant'].includes(etat.profil.role);
   // Ce que chaque rôle peut ouvrir
   const peut = (onglet) => ({ accueil: estStaff(), campagnes: estStaff(), demandes: estStaff(),
                               paiements: estFinance(), colis: estStaff() || estPartenaire(),
-                              reseau: estFinance(), reglages: estAdmin() }[onglet] || false);
+                              reseau: estFinance(), reglages: estAdmin(), messages: estSupport(),
+                              alertes: estStaff() || estPartenaire() }[onglet] || false);
   const tel = (p) => (p && p.telephone) || '';
 
   function router() {
+    if (etat.canal) { sb.removeChannel(etat.canal); etat.canal = null; }
     const brut = location.hash.replace(/^#\/?/, '');
     const [chemin, qs] = brut.split('?');
     const m = chemin.split('/').filter(Boolean);
@@ -84,9 +96,10 @@
     document.getElementById('nav-haut').hidden = !accesEquipe;
     const I = window.ICO;
     document.getElementById('entete-compte').innerHTML = etat.session
-      ? `${estStaff() && etat.niveauData ? `<a class="lien-data" href="${cfg.urlData}" target="_blank" rel="noopener">${I.graphique}<span>Analyses</span></a>` : ''}
+      ? `<span id="cloche"></span>${estStaff() && etat.niveauData ? `<a class="lien-data" href="${cfg.urlData}" target="_blank" rel="noopener">${I.graphique}<span>Analyses</span></a>` : ''}
          <span class="lien-compte">${I.utilisateur}<span>${esc(((etat.profil && etat.profil.nom_complet) || etat.session.user.email).split(' ')[0])}</span></span>
          <button class="btn btn-second btn-petit" id="sortir" aria-label="Se déconnecter">${I.sortie}<span class="txt-sortir">Sortir</span></button>` : '';
+    notifs.dessinerCloche();
     if (estStaff()) majBadges();
     document.querySelector('.puce-equipe').textContent = estPartenaire() ? 'Point de retrait' : 'Équipe';
     const s = document.getElementById('sortir');
@@ -97,17 +110,19 @@
     // Menus visibles selon le rôle
     document.querySelectorAll('.nav-bas a, .nav-haut a').forEach((a) => { a.hidden = !peut(a.dataset.onglet); });
     const nb = document.querySelectorAll('.nav-bas a:not([hidden])').length;
-    document.getElementById('nav').style.gridTemplateColumns = `repeat(${nb}, minmax(56px, 1fr))`;
+    document.getElementById('nav').style.gridTemplateColumns = `repeat(${nb}, minmax(64px, 1fr))`;
 
     const onglet = { '': 'accueil', paiements: 'paiements', campagnes: 'campagnes', campagne: 'campagnes', pistes: 'campagnes', piste: 'campagnes',
-                     demandes: 'demandes', demande: 'demandes', colis: 'colis', reseau: 'reseau', reglages: 'reglages', utilisateurs: 'reglages' }[m[0] || ''];
-    if (estPartenaire() && onglet !== 'colis') { location.hash = '#/colis'; return; }
+                     demandes: 'demandes', demande: 'demandes', colis: 'colis', reseau: 'reseau', reglages: 'reglages', utilisateurs: 'reglages',
+                     messages: 'messages', alertes: 'alertes' }[m[0] || ''];
+    if (estPartenaire() && onglet !== 'colis' && onglet !== 'alertes') { location.hash = '#/colis'; return; }
     document.querySelectorAll('.nav-bas a, .nav-haut a').forEach((a) => a.classList.toggle('actif', a.dataset.onglet === onglet));
     window.scrollTo(0, 0);
     if (onglet && !peut(onglet)) { location.hash = '#/'; return; }
     const routes = { '': vueAccueil, paiements: vuePaiements, campagnes: vueCampagnes, campagne: vueCampagne,
                      demandes: vueDemandes, demande: vueDemande, colis: vueColis, reseau: vueReseau, reglages: vueReglages,
-                     pistes: ops.vuePistes, piste: ops.vuePiste, utilisateurs: ops.vueUtilisateurs };
+                     pistes: ops.vuePistes, piste: ops.vuePiste, utilisateurs: ops.vueUtilisateurs,
+                     messages: vueMessages, alertes: vueAlertes };
     vue.innerHTML = '<div class="chargement">Chargement…</div>';
     Promise.resolve((routes[m[0] || ''] || vueAccueil)(m[1], params)).catch((e) => {
       vue.innerHTML = `<div class="carte"><div class="alerte alerte-ko">${esc(msgErreur(e))}</div>
@@ -607,6 +622,96 @@
   // ------------------------------------------------------------------
   // Réglages : numéros marchands + équipe
   // ------------------------------------------------------------------
+  // ------------------------------------------------------------------
+  // Messages clients : boîte de réception + conversation
+  // ------------------------------------------------------------------
+  async function vueMessages(clientId, params) {
+    if (clientId) return vueConversation(clientId);
+    const filtre = params.get('f') || 'tous';
+    let q = sb.from('conversations').select('*, profils(nom_complet,telephone,reference,email)').order('dernier_msg_le', { ascending: false }).limit(200);
+    if (filtre === 'a_traiter') q = q.eq('traite', false);
+    const { data, error } = await q;
+    if (error) throw error;
+    const initiales = (n) => (n || '?').split(/\s+/).filter(Boolean).slice(0, 2).map((x) => x[0]).join('').toUpperCase();
+    vue.innerHTML = `
+      <div class="chat-entete"><h1>Messages clients</h1>
+        <form id="f-nouveau" class="rangee" style="margin:0;gap:6px"><input id="q-client" placeholder="Écrire à : email, téléphone ou référence" style="margin:0;min-width:240px">
+          <button class="btn btn-petit">Ouvrir</button></form></div>
+      <div class="onglets" style="margin-bottom:12px">
+        <button data-f="tous" class="${filtre === 'tous' ? 'actif' : ''}">Toutes</button>
+        <button data-f="a_traiter" class="${filtre === 'a_traiter' ? 'actif' : ''}">En attente de réponse</button></div>
+      ${data.length ? `<div class="boite">${data.map((c) => {
+        const p = c.profils || {};
+        const nonLu = !c.dernier_de_equipe && new Date(c.dernier_msg_le) > new Date(c.lu_equipe_le);
+        return `<a class="conv${nonLu ? ' non-lue' : ''}" href="#/messages/${c.client_id}">
+          <span class="conv-avatar">${esc(initiales(p.nom_complet))}</span>
+          <span class="conv-txt"><b>${esc(p.nom_complet || p.email || 'Client')}</b><span>${c.dernier_de_equipe ? 'Vous : ' : ''}${esc(c.dernier_apercu || '')}</span></span>
+          <small>${esc(date(c.dernier_msg_le, true))}${nonLu ? '<b class="compte-badge">1</b>' : (!c.traite ? '<span class="badge badge-alerte">À répondre</span>' : '')}</small></a>`;
+      }).join('')}</div>` : `<div class="carte vide"><p>${filtre === 'a_traiter' ? 'Aucune conversation en attente. Bravo !' : 'Aucun message pour l\'instant. Les clients écrivent depuis l\'onglet « Messages » du site.'}</p></div>`}`;
+    vue.querySelectorAll('[data-f]').forEach((b) => b.addEventListener('click', () => { location.hash = '#/messages' + (b.dataset.f === 'tous' ? '' : '?f=' + b.dataset.f); }));
+    document.getElementById('f-nouveau').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const v = document.getElementById('q-client').value.trim();
+      if (!v) return;
+      const col = v.includes('@') ? 'email' : /^IP/i.test(v) ? 'reference' : 'telephone';
+      const val = col === 'email' ? v.toLowerCase() : col === 'reference' ? v.toUpperCase() : normTel(v);
+      const { data: pr } = await sb.from('profils').select('id').ilike(col, val).maybeSingle();
+      if (!pr) return toast('Aucun client trouvé', 'ko');
+      location.hash = '#/messages/' + pr.id;
+    });
+    etat.canal = sb.channel('boite').on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, () => {
+      if (location.hash.replace(/\?.*$/, '') === '#/messages') router();
+    }).subscribe();
+  }
+
+  async function vueConversation(clientId) {
+    const [{ data: p, error }, { data: conv }, { data: cmd }, { data: dem }, { data: equipe }] = await Promise.all([
+      sb.from('profils').select('id,nom_complet,telephone,email,reference,region,pays,created_at').eq('id', clientId).maybeSingle(),
+      sb.from('conversations').select('traite').eq('client_id', clientId).maybeSingle(),
+      sb.from('commandes').select('id,quantite,montant_total,statut,created_at,campagne_id,campagnes(titre)').eq('client_id', clientId).order('created_at', { ascending: false }).limit(5),
+      sb.from('demandes').select('id,description,statut,created_at').eq('client_id', clientId).order('created_at', { ascending: false }).limit(3),
+      sb.from('profils').select('id,nom_complet').in('role', ['admin', 'assistant'])
+    ]);
+    if (error) throw error;
+    if (!p) throw new Error('Client introuvable');
+    const noms = { client: p.nom_complet || 'Client' };
+    (equipe || []).forEach((x) => { noms[x.id] = (x.nom_complet || 'Équipe').split(' ')[0]; });
+    vue.innerHTML = `
+      <p><a href="#/messages">← Tous les messages</a></p>
+      <div class="messagerie-equipe">
+        <div><h1 style="margin-bottom:10px">${esc(p.nom_complet || 'Client')}</h1><div id="zone-chat"></div></div>
+        <aside class="carte conv-fiche">
+          <h2>Client</h2>
+          <div class="ligne-info"><span class="discret">Référence</span><b>${esc(p.reference || '—')}</b></div>
+          ${p.telephone ? `<div class="ligne-info"><span class="discret">Téléphone</span><b>${esc(p.telephone)}</b></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap"><a class="btn btn-second btn-petit" href="tel:${esc(p.telephone)}">Appeler</a>
+            <a class="btn btn-second btn-petit" href="${waLien(p.telephone, 'Bonjour ' + (p.nom_complet || '').split(' ')[0] + ', ')}" target="_blank" rel="noopener">WhatsApp</a></div>` : ''}
+          ${p.email ? `<div class="ligne-info"><span class="discret">Email</span><span style="overflow-wrap:anywhere">${esc(p.email)}</span></div>` : ''}
+          ${p.region ? `<div class="ligne-info"><span class="discret">Région</span><span>${esc(p.region)}</span></div>` : ''}
+          <h3 style="margin-top:10px">Dernières commandes</h3>
+          ${(cmd || []).length ? cmd.map((c) => `<a class="ligne-info" href="#/campagne/${c.campagne_id}" style="text-decoration:none;color:inherit">
+              <span>${esc((c.campagnes && c.campagnes.titre) || 'Campagne')} · ${c.quantite}</span>${badge(c.statut)}</a>`).join('') : '<p class="discret">Aucune</p>'}
+          ${(dem || []).length ? `<h3 style="margin-top:10px">Sur mesure</h3>${dem.map((d) => `<a class="ligne-info" href="#/demande/${d.id}" style="text-decoration:none;color:inherit">
+              <span>${esc((d.description || '').slice(0, 40))}</span>${badge(d.statut)}</a>`).join('')}` : ''}
+          <label class="case-acceptation" style="margin-top:12px"><input type="checkbox" id="traite" ${conv && conv.traite ? 'checked' : ''}> Conversation traitée</label>
+          <p class="aide">Vous pouvez modifier ou supprimer vos propres messages. Le client voit « modifié » ou « Message supprimé ».</p>
+        </aside>
+      </div>`;
+    document.getElementById('traite').addEventListener('change', async (e) => {
+      const { error: er } = await sb.rpc('classer_conversation', { p_client: clientId, p_traite: e.target.checked });
+      if (er) toast(msgErreur(er), 'ko');
+    });
+    etat.canal = await chat.monter(document.getElementById('zone-chat'), clientId, etat.profil.id, {
+      noms, vide: '<p>Aucun message. Écrivez le premier : le client recevra une alerte.</p>' });
+    majBadges();
+  }
+
+  // Alertes de ce téléphone (accessible à toute l'équipe, y compris les points de retrait)
+  async function vueAlertes() {
+    vue.innerHTML = `<h1>Alertes</h1><div data-zone-notifs id="zone-alertes" style="max-width:560px"></div>`;
+    await notifs.remplirCarte(document.getElementById('zone-alertes'));
+  }
+
   async function vueReglages() {
     const g = etat.groupeur || {};
     const membres = estAdmin()
@@ -949,7 +1054,8 @@
         </div>`).join('')}
       </div><div class="colonne">
         ${estAdmin() ? `<div class="carte"><h2>Nouveau point de retrait</h2>${formPoint(null)}
-          <p class="aide">Le responsable reçoit le rôle « Point de retrait » : il se connecte à l'espace équipe et ne voit que l'onglet Colis de son point.</p></div>` : ''}
+          <p class="aide">Un <b>client</b> désigné responsable devient « Point de retrait » : il ne voit que l'onglet Colis de son point.
+          Un <b>représentant</b> (ou un assistant) garde son rôle et tous ses accès : le point lui est simplement rattaché.</p></div>` : ''}
       </div></div>`,
       brancher() {
         vue.querySelectorAll('.form-point').forEach((f) => f.addEventListener('submit', (ev) => {

@@ -1,0 +1,17 @@
+{
+  "name": "Import Public Équipe",
+  "short_name": "IP Équipe",
+  "description": "Espace équipe Import Public : paiements, campagnes, colis, messages clients.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "lang": "fr",
+  "background_color": "#f6f3ee",
+  "theme_color": "#1d1b18",
+  "icons": [
+    { "src": "icones/icone-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icones/icone-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icones/icone-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
