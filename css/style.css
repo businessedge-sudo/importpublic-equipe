@@ -879,3 +879,6 @@ h1, h2, h3, .logo { color: var(--brun); letter-spacing: -.01em; }
 .op.faite b { color: var(--encre-2); }
 .form-cout { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--ligne); }
 .pastille-maj { flex: none; font-size: .7rem; font-weight: 700; color: #fff; background: var(--accent); border-radius: 99px; padding: 3px 8px; }
+.aide-chiffrage { margin: 4px 0 12px; padding: 10px 12px; border: 1px dashed #ffc49c; border-radius: 12px; background: #fffaf5; }
+.aide-chiffrage summary { cursor: pointer; font-weight: 700; color: var(--accent-fonce); }
+.resultat-chiffrage { margin: 10px 0 8px; font-size: .92rem; }

@@ -517,6 +517,8 @@
     const suivant = i >= 0 && i < SUITE_DEMANDE.length - 1 ? SUITE_DEMANDE[i + 1] : null;
     const peutChiffrer = estFinance() && ['nouvelle', 'devis_envoye'].includes(d.statut);
     const lienSuivi = `${cfg.urlSite}/#/demande/${d.id}`;
+    const opsDemande = await ops.sectionDemande(d);
+    const chiffrage = ops.aideChiffrage(d);
 
     vue.innerHTML = `
       <a class="retour" href="#/demandes">← Sur mesure</a>
@@ -539,6 +541,7 @@
       </div><div class="colonne">
       ${peutChiffrer ? `<form class="carte" id="form-devis">
         <h2>${d.statut === 'nouvelle' ? 'Envoyer un prix' : 'Modifier le devis'}</h2>
+        ${chiffrage.html}
         <label for="montant">Prix total livré à Lomé (F CFA)</label>
         <input id="montant" type="number" inputmode="numeric" min="1" required value="${esc(d.montant_devis || '')}">
         <label for="note">Message au client</label>
@@ -555,6 +558,7 @@
         </div>
         <div id="zone-wa"></div>
       </div>
+      ${opsDemande.html}
       </div></div>`;
 
     const proposerWa = (texte) => {
@@ -563,13 +567,16 @@
         href="${waLien(cl.telephone, `Bonjour ${(cl.nom_complet || '').split(' ')[0]}, ${texte} Détails : ${lienSuivi}`)}">Prévenir ${esc(cl.nom_complet || 'le client')} sur WhatsApp</a>`;
     };
 
+    opsDemande.brancher();
     const fd = document.getElementById('form-devis');
+    if (fd) chiffrage.brancher(document.getElementById('montant'));
     if (fd) fd.addEventListener('submit', (ev) => {
       ev.preventDefault();
       occupe(ev.target.querySelector('button'), async () => {
         const montant = parseInt(document.getElementById('montant').value, 10);
         const { error } = await sb.from('demandes').update({
-          montant_devis: montant, note_devis: document.getElementById('note').value.trim() || null, statut: 'devis_envoye'
+          montant_devis: montant, note_devis: document.getElementById('note').value.trim() || null, statut: 'devis_envoye',
+          chiffrage: chiffrage.lire()
         }).eq('id', d.id);
         if (error) { toast(msgErreur(error), 'ko'); return; }
         toast('Devis envoyé');

@@ -285,6 +285,87 @@ window.IP_OPS = function (ctx) {
   ];
   const CATEGORIES_COUTS = ['fournisseur', 'transport', 'douane', 'local', 'autre'];
 
+  // Liste à cocher partagée par les campagnes (col = campagne_id) et les demandes sur mesure (col = demande_id)
+  function checklistOps(col, id, faites) {
+    return {
+      html: `<div class="carte"><h2>Suivi des opérations</h2>
+        <p class="discret">Cochez au fur et à mesure : chaque étape apparaît <b>aussitôt dans le suivi du client</b>, avec la date (vos notes restent internes).
+          Les étapes clés font aussi avancer le statut : fournisseur payé → Commandée, reçu à l'entrepôt → Entrepôt Chine, départ → En transit,
+          retiré à Lomé → Arrivée (création du colis et du code de retrait).</p>
+        <div class="checklist-ops">${OPERATIONS.map(([k, l, etapeClient]) => {
+          const o = faites[k];
+          return `<div class="op${o ? ' faite' : ''}">
+            <button type="button" class="op-case" data-op="${k}" aria-pressed="${o ? 'true' : 'false'}" aria-label="${esc(l)}">${o ? I.coche : ''}</button>
+            <div style="flex:1;min-width:0"><b>${esc(l)}</b>
+              <small>${o ? 'Fait le ' + date(o.fait_le, true) + (o.note ? ' · ' + esc(o.note) : '') : 'Statut : ' + esc(lib(etapeClient))}</small></div></div>`;
+        }).join('')}</div></div>`,
+      brancher() {
+        vue.querySelectorAll('[data-op]').forEach((b) => b.addEventListener('click', () => {
+          const k = b.dataset.op;
+          if (faites[k]) {
+            if (!confirm('Décocher cette étape ? (le statut ne recule pas automatiquement)')) return;
+            occupe(b, async () => {
+              const { error } = await sb.from('operations_campagne').delete().eq(col, id).eq('etape', k);
+              if (error) toast(msgErreur(error), 'ko'); else ctx.router();
+            });
+          } else {
+            const note = prompt('Note interne (facultatif) : n° de suivi, poids, remarque…');
+            if (note === null) return;
+            occupe(b, async () => {
+              const { error } = await sb.from('operations_campagne').insert({ [col]: id, etape: k, note: note.trim() || null });
+              if (error) toast(msgErreur(error), 'ko'); else { toast('Étape cochée : le client la voit'); ctx.router(); }
+            });
+          }
+        }));
+      }
+    };
+  }
+
+  async function sectionDemande(d) {
+    if (!['payee', 'commandee', 'entrepot_chine', 'en_transit', 'arrivee', 'livree'].includes(d.statut)) return { html: '', brancher() {} };
+    const { data } = await sb.from('operations_campagne').select('*').eq('demande_id', d.id);
+    return checklistOps('demande_id', d.id, Object.fromEntries((data || []).map((o) => [o.etape, o])));
+  }
+
+  // Aide au chiffrage d'un devis sur mesure : renvoie le HTML et un branchement qui remplit le champ montant
+  function aideChiffrage(d) {
+    const ch = d.chiffrage || {};
+    const v = (k, def) => esc(ch[k] != null ? ch[k] : def != null ? def : '');
+    return {
+      html: `<details class="aide-chiffrage"${ch.prix_fournisseur ? ' open' : ''}><summary>Aide au chiffrage</summary>
+        <div class="rangee"><div><label>Prix fournisseur / unité</label><input class="ch" data-k="prix_fournisseur" type="number" step="any" min="0" value="${v('prix_fournisseur')}"></div>
+          <div><label>Devise</label><select class="ch" data-k="devise">${['CNY', 'USD', 'XOF'].map((x) => `<option ${(ch.devise || 'CNY') === x ? 'selected' : ''}>${x}</option>`).join('')}</select></div></div>
+        <div class="rangee"><div><label>Taux (F pour 1)</label><input class="ch" data-k="taux_change" type="number" step="any" min="0" value="${v('taux_change', 85)}"></div>
+          <div><label>Poids / unité (kg)</label><input class="ch" data-k="poids_kg" type="number" step="any" min="0" value="${v('poids_kg')}"></div></div>
+        <div class="rangee"><div><label>Transport (F/kg)</label><input class="ch" data-k="cout_kg" type="number" step="any" min="0" value="${v('cout_kg', 7000)}"></div>
+          <div><label>Douane (%)</label><input class="ch" data-k="douane" type="number" step="any" min="0" value="${v('douane', 0)}"></div></div>
+        <div class="rangee"><div><label>Frais fixes (F, total)</label><input class="ch" data-k="frais_fixes" type="number" step="any" min="0" value="${v('frais_fixes', 0)}"></div>
+          <div><label>Marge souhaitée / unité (F)</label><input class="ch" data-k="marge" type="number" step="any" min="0" value="${v('marge', MARGE_CIBLE)}"></div></div>
+        <div id="resultat-chiffrage" class="resultat-chiffrage"></div>
+        <button type="button" class="btn btn-second btn-petit" id="utiliser-chiffrage">Utiliser ce prix</button>
+      </details>`,
+      lire() {
+        const o = {}; vue.querySelectorAll('.ch').forEach((el) => { o[el.dataset.k] = el.tagName === 'SELECT' ? el.value : (el.value === '' ? null : Number(el.value)); });
+        return o;
+      },
+      brancher(champMontant) {
+        const calc = () => {
+          const o = this.lire(); const q = Number(d.quantite) || 1;
+          const c = calculer({ prix_fournisseur: o.prix_fournisseur, devise: o.devise, taux_change: o.taux_change, mode_transport: 'aerien',
+            poids_kg: o.poids_kg, cout_kg: o.cout_kg, douane_pct: (o.douane || 0) / 100, frais_fixes: o.frais_fixes, quota_prevu: q,
+            autres_frais_unite: 0, frais_reseau_unite: 0, prix_vente: 0 });
+          const unite = Math.ceil((c.revient + (o.marge || 0)) / 100) * 100;
+          this.total = unite * q;
+          document.getElementById('resultat-chiffrage').innerHTML = o.prix_fournisseur
+            ? `Coût de revient ${fcfa(Math.round(c.revient))} / unité · prix proposé <b>${fcfa(unite)}</b> / unité · <b>${fcfa(this.total)}</b> pour ${q}`
+            : '<span class="discret">Renseignez au moins le prix fournisseur.</span>';
+        };
+        vue.querySelectorAll('.ch').forEach((el) => el.addEventListener('input', calc)); calc();
+        document.getElementById('utiliser-chiffrage').addEventListener('click', () => { if (this.total) champMontant.value = this.total; });
+      }
+    };
+  }
+
   async function sectionsCampagne(c, payees) {
     if (['brouillon', 'ouverte', 'echec_quota'].includes(c.statut) && !ctx.estFinance()) return { html: '', brancher() {} };
     const [ops, couts, piste] = await Promise.all([
@@ -298,18 +379,10 @@ window.IP_OPS = function (ctx) {
     const unites = payees.reduce((s, o) => s + Number(o.quantite), 0);
     const estim = piste.data ? calculer(piste.data) : null;
     const actif = !['brouillon', 'ouverte', 'echec_quota'].includes(c.statut);
+    const liste = checklistOps('campagne_id', c.id, faites);
 
     const html = `
-      ${actif ? `<div class="carte"><h2>Suivi des opérations</h2>
-        <p class="discret">Cochez au fur et à mesure : chaque étape apparaît <b>aussitôt dans le suivi des clients</b> concernés, avec la date (vos notes restent internes).
-          Les étapes clés font aussi avancer la campagne : fournisseur payé → Commandée, reçu à l'entrepôt → Entrepôt Chine, départ → En transit, retiré à Lomé → Arrivée (création des colis et codes de retrait).</p>
-        <div class="checklist-ops">${OPERATIONS.map(([k, l, etapeClient]) => {
-          const o = faites[k];
-          return `<div class="op${o ? ' faite' : ''}">
-            <button type="button" class="op-case" data-op="${k}" aria-pressed="${o ? 'true' : 'false'}" aria-label="${esc(l)}">${o ? I.coche : ''}</button>
-            <div style="flex:1;min-width:0"><b>${esc(l)}</b>
-              <small>${o ? 'Fait le ' + date(o.fait_le, true) + (o.note ? ' · ' + esc(o.note) : '') : 'Étape client : ' + esc(lib(etapeClient))}</small></div></div>`;
-        }).join('')}</div></div>` : ''}
+      ${actif ? liste.html : ''}
       ${ctx.estFinance() ? `<div class="carte"><h2>Coûts réels et marge</h2>
         <table class="tableau-calcul"><tbody>
           <tr><td>Encaissé (${unites} unité${unites > 1 ? 's' : ''} payée${unites > 1 ? 's' : ''})</td><td><b>${fcfa(encaisse)}</b></td></tr>
@@ -331,23 +404,7 @@ window.IP_OPS = function (ctx) {
     return {
       html,
       brancher() {
-        vue.querySelectorAll('[data-op]').forEach((b) => b.addEventListener('click', () => {
-          const k = b.dataset.op;
-          if (faites[k]) {
-            if (!confirm('Décocher cette étape ?')) return;
-            occupe(b, async () => {
-              const { error } = await sb.from('operations_campagne').delete().eq('campagne_id', c.id).eq('etape', k);
-              if (error) toast(msgErreur(error), 'ko'); else ctx.router();
-            });
-          } else {
-            const note = prompt('Note (facultatif) : n° de suivi, poids, remarque…');
-            if (note === null) return;
-            occupe(b, async () => {
-              const { error } = await sb.from('operations_campagne').insert({ campagne_id: c.id, etape: k, note: note.trim() || null });
-              if (error) toast(msgErreur(error), 'ko'); else { toast('Étape cochée'); ctx.router(); }
-            });
-          }
-        }));
+        if (actif) liste.brancher();
         const fc = document.getElementById('form-cout');
         if (fc) fc.addEventListener('submit', (ev) => {
           ev.preventDefault();
@@ -438,5 +495,5 @@ window.IP_OPS = function (ctx) {
     });
   }
 
-  return { vuePistes, vuePiste, vueUtilisateurs, sectionsCampagne, ongletsCampagnes };
+  return { vuePistes, vuePiste, vueUtilisateurs, sectionsCampagne, ongletsCampagnes, sectionDemande, aideChiffrage };
 };
