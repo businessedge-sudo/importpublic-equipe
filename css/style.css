@@ -1001,3 +1001,9 @@ body.avec-wa main { padding-bottom: 72px; }
 
 /* Espace équipe : 8 onglets en bas, on fait défiler plutôt que de chevaucher */
 .espace-equipe .nav-bas a { white-space: nowrap; font-size: .68rem; min-width: 64px; }
+@media (max-width: 420px) {
+  .entete-equipe .puce-equipe { font-size: .62rem; padding: 2px 6px; margin-left: 4px; }
+  .entete-equipe .logo { font-size: 1.05rem; }
+  .entete-equipe .entete-actions { gap: 2px; }
+  .entete-equipe .btn-cloche { padding: 6px; }
+}

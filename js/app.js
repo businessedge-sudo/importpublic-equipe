@@ -69,12 +69,12 @@
       el.textContent = n || ''; el.hidden = !n;
     });
   }
-  const estStaff = () => etat.profil && ['admin', 'assistant', 'representant', 'groupeur'].includes(etat.profil.role);
+  const estStaff = () => etat.profil && ['admin', 'assistant', 'groupeur'].includes(etat.profil.role);
   const estAdmin = () => etat.profil && etat.profil.role === 'admin';
   // Paiements et chiffrage des devis : admin et assistants
   const estFinance = () => etat.profil && ['admin', 'assistant', 'groupeur'].includes(etat.profil.role);
-  // Point de retrait partenaire : uniquement l'onglet Colis
-  const estPartenaire = () => etat.profil && etat.profil.role === 'partenaire';
+  // Représentant = point de retrait : uniquement l'onglet Colis de son point (+ ses alertes)
+  const estPartenaire = () => etat.profil && ['representant', 'partenaire'].includes(etat.profil.role);
   // Messagerie clients : admin et assistants (même règle que la base, est_support)
   const estSupport = () => etat.profil && ['admin', 'assistant'].includes(etat.profil.role);
   // Ce que chaque rôle peut ouvrir
@@ -101,7 +101,7 @@
          <button class="btn btn-second btn-petit" id="sortir" aria-label="Se déconnecter">${I.sortie}<span class="txt-sortir">Sortir</span></button>` : '';
     notifs.dessinerCloche();
     if (estStaff()) majBadges();
-    document.querySelector('.puce-equipe').textContent = estPartenaire() ? 'Point de retrait' : 'Équipe';
+    document.querySelector('.puce-equipe').textContent = estPartenaire() ? 'Représentant' : 'Équipe';
     const s = document.getElementById('sortir');
     if (s) s.addEventListener('click', () => sb.auth.signOut());
 
@@ -715,7 +715,7 @@
   async function vueReglages() {
     const g = etat.groupeur || {};
     const membres = estAdmin()
-      ? (await sb.from('profils').select('id,nom_complet,telephone,email,role').in('role', ['admin', 'assistant', 'representant', 'groupeur']).order('nom_complet')).data || []
+      ? (await sb.from('profils').select('id,nom_complet,telephone,email,role').in('role', ['admin', 'assistant', 'groupeur']).order('nom_complet')).data || []
       : [];
     vue.innerHTML = `
       <h1>Réglages</h1>
@@ -734,13 +734,13 @@
         ${membres.map((p) => `<div class="ligne"><div style="flex:1;min-width:0"><div class="ligne-titre">${esc(p.nom_complet || p.email)}</div>
           <small>${esc(p.email || '')} · ${esc(p.telephone || '')}</small></div>
           <div class="actions-ligne">${p.id !== etat.profil.id ? `<select class="choix-role" data-profil="${p.id}" aria-label="Rôle de ${esc(p.nom_complet || p.email)}">
-              ${[['assistant', 'Assistant'], ['representant', 'Représentant'], ['admin', 'Admin']].map(([v, l]) =>
+              ${[['assistant', 'Assistant'], ['admin', 'Admin']].map(([v, l]) =>
                 `<option value="${v}"${(p.role === v || (v === 'assistant' && p.role === 'groupeur')) ? ' selected' : ''}>${l}</option>`).join('')}
             </select><button class="btn btn-second btn-petit" data-retirer="${p.id}">Retirer</button>` : badge(p.role)}</div></div>`).join('')}
         <details class="roles-aide"><summary>Qui voit quoi ?</summary>
           <ul><li><b>Admin</b> : tout, y compris les réglages, l'équipe et les analyses.</li>
           <li><b>Assistant</b> : accueil, paiements (vérifier, valider), campagnes, sur mesure (chiffrer les devis).</li>
-          <li><b>Représentant</b> : accueil, campagnes, sur mesure (suivi et remise des colis). Pas les paiements.</li>
+          <li><b>Représentant</b> = point de retrait : uniquement les colis de son point (réception, remise contre code). Se nomme dans <a href="#/reseau/points">Réseau › Représentants</a>.</li>
           <li>Les <b>analyses</b> se partagent à part, depuis le site data (bouton Partager).</li></ul></details>
         <a class="btn btn-second btn-large" href="#/utilisateurs" style="margin-top:12px">${window.ICO.personnes}Voir tous les utilisateurs et gérer les rôles</a>
         <hr>
@@ -748,7 +748,8 @@
           <label for="cherche">Ajouter un membre</label>
           <input id="cherche" required placeholder="Email ou numéro WhatsApp de son compte">
           <div class="aide">La personne doit d'abord créer un compte sur le site client.</div>
-          <select id="role-ajout" style="margin-top:8px"><option value="assistant">Assistant</option><option value="representant">Représentant</option><option value="admin">Admin</option></select>
+          <select id="role-ajout" style="margin-top:8px"><option value="assistant">Assistant</option><option value="admin">Admin</option></select>
+          <div class="aide">Pour un représentant (point de retrait) : <a href="#/reseau/points">Réseau › Représentants</a>.</div>
           <button class="btn btn-second btn-large" style="margin-top:10px">Ajouter</button>
         </form>
       </div>` : ''}
@@ -798,7 +799,7 @@
   // ------------------------------------------------------------------
   async function vueColis(_, params) {
     const I = window.ICO;
-    // Points accessibles : tous pour l'équipe, les siens pour un partenaire
+    // Points accessibles : tous pour l'équipe, le sien pour un représentant
     let q = sb.from('points_retrait').select('*').order('principal', { ascending: false }).order('nom');
     if (estPartenaire()) q = q.eq('responsable_id', etat.profil.id);
     const { data: points, error } = await q;
@@ -927,7 +928,7 @@
   // ------------------------------------------------------------------
   async function vueReseau(rub, params) {
     const r = rub || 'ambassadeurs';
-    const onglets = [['ambassadeurs', 'Ambassadeurs'], ['commissions', 'Commissions'], ['points', 'Points de retrait'], ['bareme', 'Barème et versements']];
+    const onglets = [['ambassadeurs', 'Ambassadeurs'], ['commissions', 'Commissions'], ['points', 'Représentants'], ['bareme', 'Barème et versements']];
     const corps = await ({ ambassadeurs: reseauAmbassadeurs, commissions: reseauCommissions, points: reseauPoints, bareme: reseauBareme }[r] || reseauAmbassadeurs)(params);
     vue.innerHTML = `<h1>Réseau</h1>
       <div class="filtres">${onglets.map(([k, l]) => `<button class="${k === r ? 'actif' : ''}" data-r="${k}">${l}</button>`).join('')}</div>
@@ -1026,21 +1027,22 @@
     };
   }
 
-  async function reseauPoints() {
-    const { data, error } = await sb.from('points_retrait').select('*, profils(nom_complet,telephone,email)').order('principal', { ascending: false }).order('nom');
+  async function reseauPoints(params) {
+    const { data, error } = await sb.from('points_retrait').select('*, profils(nom_complet,telephone,email,role)').order('principal', { ascending: false }).order('nom');
     if (error) throw error;
+    const prerempli = (params && params.get('responsable')) || '';
     const formPoint = (p) => `
       <form class="form-point" data-id="${p ? p.id : ''}">
-        <div class="rangee"><div><label>Nom</label><input name="nom" required value="${esc(p ? p.nom : '')}" placeholder="Ex. : Point Kara Centre"></div>
+        <label>Représentant (email ou numéro WhatsApp de son compte)</label>
+        <input name="responsable" value="${esc(p ? (p.profils ? p.profils.email || p.profils.telephone || '' : '') : prerempli)}" placeholder="${p && p.principal ? 'Vide = géré par l\'équipe' : 'La personne crée d\'abord un compte sur le site'}" ${p && p.principal ? '' : 'required'}>
+        <div class="rangee"><div><label>Nom du point</label><input name="nom" required value="${esc(p ? p.nom : '')}" placeholder="Ex. : Chez Jacques · Agoè"></div>
           <div><label>Région</label><input name="region" value="${esc(p ? p.region || '' : '')}" placeholder="Ex. : Kara"></div></div>
         <div class="rangee"><div><label>Ville</label><input name="ville" value="${esc(p ? p.ville || '' : '')}"></div>
           <div><label>Téléphone du point</label><input name="telephone" type="tel" value="${esc(p ? p.telephone || '' : '')}"></div></div>
         <label>Adresse / repère</label><input name="adresse" value="${esc(p ? p.adresse || '' : '')}" placeholder="Ex. : Grand marché, à côté de la pharmacie">
         <label>Horaires</label><input name="horaires" value="${esc(p ? p.horaires || '' : '')}" placeholder="Ex. : Lun-Sam 8h-18h">
-        <label>Responsable (email ou numéro WhatsApp de son compte)</label>
-        <input name="responsable" value="${esc(p && p.profils ? p.profils.email || p.profils.telephone || '' : '')}" placeholder="La personne doit avoir un compte sur le site">
         <label class="case-acceptation"><input type="checkbox" name="actif" ${!p || p.actif ? 'checked' : ''}> Point actif (proposé aux clients)</label>
-        <button class="btn btn-petit">${p ? 'Enregistrer' : 'Créer le point'}</button>
+        <button class="btn btn-petit">${p ? 'Enregistrer' : 'Nommer le représentant'}</button>
       </form>`;
     return {
       html: `
@@ -1048,37 +1050,45 @@
         ${data.map((p) => `<div class="carte">
           <div style="display:flex;justify-content:space-between;gap:10px"><h2>${esc(p.nom)}</h2>${p.actif ? badge('actif') : '<span class="badge badge-neutre">Inactif</span>'}</div>
           <p class="discret">${esc([p.adresse, p.ville, p.region].filter(Boolean).join(' · ') || 'Adresse à compléter')}${p.horaires ? ' · ' + esc(p.horaires) : ''}</p>
-          <p class="discret">Responsable : ${p.profils ? esc(p.profils.nom_complet || p.profils.email) : 'aucun (géré par l\'équipe)'}</p>
+          <p class="discret">Représentant : ${p.profils ? esc(p.profils.nom_complet || p.profils.email) + (p.profils.telephone ? ' · ' + esc(p.profils.telephone) : '') : 'aucun (géré par l\'équipe)'}</p>
           ${estAdmin() ? `<details><summary class="lien-texte">Modifier</summary>${formPoint(p)}</details>` : ''}
           <a class="btn btn-second btn-petit" href="#/colis?point=${p.id}">Voir les colis</a>
         </div>`).join('')}
       </div><div class="colonne">
-        ${estAdmin() ? `<div class="carte"><h2>Nouveau point de retrait</h2>${formPoint(null)}
-          <p class="aide">Un <b>client</b> désigné responsable devient « Point de retrait » : il ne voit que l'onglet Colis de son point.
-          Un <b>représentant</b> (ou un assistant) garde son rôle et tous ses accès : le point lui est simplement rattaché.</p></div>` : ''}
+        ${estAdmin() ? `<div class="carte" id="nouveau-rep"><h2>Nommer un représentant</h2>
+          <p class="discret">Chaque représentant est un point de retrait : les clients viennent chercher leurs colis chez lui.</p>
+          ${formPoint(null)}
+          <p class="aide">La personne crée d'abord un compte sur importpublic.com. En validant, elle devient « Représentant » :
+          elle se connecte sur equipe.importpublic.com et ne voit que les colis de son point. Elle touche 50 F à la réception et 50 F à la remise de chaque colis.
+          Pour lui retirer ce rôle : Utilisateurs › rôle « Client » (son point est alors désactivé).</p></div>` : ''}
       </div></div>`,
       brancher() {
+        if (prerempli) { const n = document.getElementById('nouveau-rep'); if (n) { n.scrollIntoView({ block: 'start' }); n.querySelector('[name=nom]').focus(); } }
         vue.querySelectorAll('.form-point').forEach((f) => f.addEventListener('submit', (ev) => {
           ev.preventDefault();
           occupe(f.querySelector('button'), async () => {
             const v = (n) => f.elements[n].value.trim();
-            let responsable_id = null;
+            const tel = v('telephone') ? normTel(v('telephone')) : null;
+            const ligne = { nom: v('nom'), region: v('region') || null, ville: v('ville') || null, telephone: tel,
+                            adresse: v('adresse') || null, horaires: v('horaires') || null, actif: f.elements.actif.checked };
             if (v('responsable')) {
               const col = v('responsable').includes('@') ? 'email' : 'telephone';
               const val = col === 'email' ? v('responsable').toLowerCase() : normTel(v('responsable'));
-              const { data: pr } = await sb.from('profils').select('id,role').ilike(col, val).maybeSingle();
-              if (!pr) { toast('Aucun compte trouvé pour le responsable', 'ko'); return; }
-              responsable_id = pr.id;
-              if (pr.role === 'client') {
-                const { error: er } = await sb.rpc('definir_role', { p_profil: pr.id, p_role: 'partenaire' });
-                if (er) { toast(msgErreur(er), 'ko'); return; }
-              }
+              const { data: pr } = await sb.from('profils').select('id,nom_complet').ilike(col, val).maybeSingle();
+              if (!pr) { toast('Aucun compte trouvé. La personne doit d\'abord s\'inscrire sur importpublic.com', 'ko'); return; }
+              // Donne le rôle Représentant et crée / met à jour son point, en une fois
+              const { data: idPoint, error: er } = await sb.rpc('nommer_representant', { p_profil: pr.id, p_nom: ligne.nom, p_ville: ligne.ville,
+                p_region: ligne.region, p_adresse: ligne.adresse, p_telephone: tel, p_horaires: ligne.horaires, p_point: f.dataset.id || null });
+              if (er) { toast(msgErreur(er), 'ko'); return; }
+              if (!ligne.actif) await sb.from('points_retrait').update({ actif: false }).eq('id', idPoint);
+              toast((pr.nom_complet || 'Représentant') + ' est représentant · ' + ligne.nom);
+            } else {
+              const r = f.dataset.id ? await sb.from('points_retrait').update({ ...ligne, responsable_id: null }).eq('id', f.dataset.id)
+                                     : await sb.from('points_retrait').insert(ligne);
+              if (r.error) { toast(msgErreur(r.error), 'ko'); return; }
+              toast('Point enregistré');
             }
-            const ligne = { nom: v('nom'), region: v('region') || null, ville: v('ville') || null, telephone: v('telephone') ? normTel(v('telephone')) : null,
-                            adresse: v('adresse') || null, horaires: v('horaires') || null, responsable_id, actif: f.elements.actif.checked };
-            const r = f.dataset.id ? await sb.from('points_retrait').update(ligne).eq('id', f.dataset.id) : await sb.from('points_retrait').insert(ligne);
-            if (r.error) { toast(msgErreur(r.error), 'ko'); return; }
-            toast('Point enregistré'); router();
+            location.hash = '#/reseau/points';  router();
           });
         }));
       }

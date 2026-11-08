@@ -429,14 +429,14 @@ window.IP_OPS = function (ctx) {
   // ==================================================================
   // Utilisateurs (admin) : tous les comptes, attribution des rôles
   // ==================================================================
-  const ROLES = [['client', 'Client'], ['assistant', 'Assistant'], ['representant', 'Représentant'], ['partenaire', 'Point de retrait'], ['admin', 'Admin']];
+  const ROLES = [['client', 'Client'], ['assistant', 'Assistant'], ['representant', 'Représentant (point de retrait)'], ['admin', 'Admin']];
 
   async function vueUtilisateurs(_, params) {
     const q = (params.get('q') || '').trim();
     const f = params.get('f') || 'tous';
     let req = sb.from('profils').select('id,nom_complet,email,telephone,role,region,reference,created_at').order('created_at', { ascending: false }).limit(200);
-    if (f === 'equipe') req = req.in('role', ['admin', 'assistant', 'representant', 'groupeur']);
-    if (f === 'partenaires') req = req.eq('role', 'partenaire');
+    if (f === 'equipe') req = req.in('role', ['admin', 'assistant', 'groupeur']);
+    if (f === 'representants') req = req.in('role', ['representant', 'partenaire']);
     if (f === 'clients') req = req.eq('role', 'client');
     if (q) {
       const s = q.replace(/[%,()]/g, ' ').trim();
@@ -457,7 +457,7 @@ window.IP_OPS = function (ctx) {
         <div class="lien-copie"><input id="q-u" value="${esc(q)}" placeholder="Nom, email, numéro ou référence client" aria-label="Rechercher un utilisateur">
           <button class="btn btn-petit">${I.loupe}Chercher</button></div>
       </form>
-      <div class="filtres">${[['tous', 'Tous'], ['equipe', 'Équipe'], ['ambassadeurs', 'Ambassadeurs'], ['partenaires', 'Points de retrait'], ['clients', 'Clients']].map(([k, l]) =>
+      <div class="filtres">${[['tous', 'Tous'], ['equipe', 'Équipe'], ['ambassadeurs', 'Ambassadeurs'], ['representants', 'Représentants'], ['clients', 'Clients']].map(([k, l]) =>
         `<button class="${k === f ? 'actif' : ''}" data-f="${k}">${l}</button>`).join('')}</div>
       <div class="carte grille-lignes">${liste.length ? liste.map((u) => `
         <div class="ligne">
@@ -467,13 +467,13 @@ window.IP_OPS = function (ctx) {
           <div class="actions-ligne">
             ${u.id === etat.profil.id ? badge(u.role)
               : `<select class="choix-role" data-profil="${u.id}" aria-label="Rôle de ${esc(u.nom_complet || u.email)}">${ROLES.map(([k, l]) =>
-                  `<option value="${k}"${(u.role === k || (k === 'assistant' && u.role === 'groupeur')) ? ' selected' : ''}>${l}</option>`).join('')}</select>`}
+                  `<option value="${k}"${(u.role === k || (k === 'assistant' && u.role === 'groupeur') || (k === 'representant' && u.role === 'partenaire')) ? ' selected' : ''}>${l}</option>`).join('')}</select>`}
           </div></div>`).join('') : '<p class="discret">Aucun compte trouvé.</p>'}</div>
       <details class="roles-aide" open><summary>Qui voit quoi ?</summary>
         <ul><li><b>Client</b> : le site client uniquement. Il peut devenir <b>Ambassadeur</b> lui-même depuis son compte (vous pouvez le suspendre dans Réseau).</li>
         <li><b>Assistant</b> : accueil, paiements, campagnes et produits à l'étude, sur mesure, colis, réseau.</li>
-        <li><b>Représentant</b> : accueil, campagnes, sur mesure, colis. Pas les paiements ni les coûts.</li>
-        <li><b>Point de retrait</b> : l'onglet Colis de son point uniquement (à rattacher dans Réseau > Points de retrait).</li>
+        <li><b>Représentant</b> = point de retrait : les clients viennent chercher leurs colis chez lui. Il ne voit que les colis de son point.
+          Choisir ce rôle ouvre la fiche de son point (nom, quartier, horaires).</li>
         <li><b>Admin</b> : tout, y compris ces réglages.</li></ul></details>`;
 
     document.getElementById('form-recherche-u').addEventListener('submit', (ev) => {
@@ -487,6 +487,13 @@ window.IP_OPS = function (ctx) {
       const avant = sel.value;
       sel.addEventListener('change', async () => {
         const libelle = sel.options[sel.selectedIndex].text;
+        // Un représentant = un point : on passe par la fiche du point, préremplie
+        if (sel.value === 'representant') {
+          const u = liste.find((x) => x.id === sel.dataset.profil);
+          sel.value = avant;
+          location.hash = '#/reseau/points?' + new URLSearchParams({ responsable: (u && (u.email || u.telephone)) || '' });
+          return;
+        }
         if (!confirm(`Donner le rôle « ${libelle} » à ce compte ?`)) { sel.value = avant; return; }
         const { error } = await sb.rpc('definir_role', { p_profil: sel.dataset.profil, p_role: sel.value });
         if (error) { toast(msgErreur(error), 'ko'); sel.value = avant; return; }
