@@ -217,7 +217,8 @@
     const p = Math.min(100, Math.round((100 * (c.quantite_payee || 0)) / (c.quota || 1)));
     return `<article class="campagne">
       <a class="campagne-image" href="#/campagne/${c.id}" aria-label="${esc(c.titre)}">
-        <img src="${esc(urlImageCampagne(c.image_url))}" alt="" loading="lazy">
+        ${c.image_url ? `<img src="${esc(urlImageCampagne(c.image_url))}" alt="" loading="lazy">`
+          : `<span class="dm-sans-photo" style="background:linear-gradient(145deg,#fff3ea,#f6e3d3)"><span class="dm-cube">${I.colis}</span><small>Ajoutez des photos</small></span>`}
         <span class="pastille-statut">${badge(c.statut)}</span>
         ${c.statut === 'ouverte' ? `<span class="pastille-delai">${esc(joursRestants(c.date_cloture))}</span>` : ''}</a>
       <div class="campagne-corps">
@@ -290,13 +291,66 @@
   // ------------------------------------------------------------------
   // Campagnes
   // ------------------------------------------------------------------
-  async function vueCampagnes() {
+  async function vueCampagnes(_, params) {
+    const memoVue = (v) => { try { if (v) localStorage.setItem('ip_vue_campagnes', v); return localStorage.getItem('ip_vue_campagnes'); } catch { return v; } };
+    const mode = params.get('vue') || memoVue() || 'galerie';
+    const f = params.get('f') || 'toutes';
     const { data, error } = await sb.from('campagnes')
-      .select('id,titre,statut,quota,quantite_payee,date_cloture,image_url').order('created_at', { ascending: false }).limit(100);
+      .select('id,titre,statut,quota,quantite_payee,nb_clients,date_cloture,image_url,prix_unitaire,prix_reference,mode_transport,type_prix')
+      .order('created_at', { ascending: false }).limit(200);
     if (error) throw error;
-    vue.innerHTML = `${ops.ongletsCampagnes('campagnes')}<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-        <h1 style="margin:0">Campagnes</h1><a class="btn btn-petit" href="#/campagne/nouvelle">+ Nouvelle</a></div>
-      <div class="carte grille-lignes">${data.length ? data.map(ligneCampagne).join('') : '<p class="discret">Aucune campagne. Créez la première.</p>'}</div>`;
+    const GROUPES = { brouillon: ['brouillon'], ouvertes: ['ouverte'], en_cours: ['quota_atteint', 'commandee', 'entrepot_chine', 'en_transit', 'arrivee'],
+                      finies: ['terminee', 'echec_quota'] };
+    const filtres = [['toutes', 'Toutes'], ['ouvertes', 'Ouvertes'], ['brouillon', 'Brouillons'], ['en_cours', 'En route'], ['finies', 'Terminées']];
+    const garde = (c, k) => k === 'toutes' || (GROUPES[k] || []).includes(c.statut);
+    const liste = data.filter((c) => garde(c, f));
+    const pct = (c) => Math.min(100, Math.round(100 * (c.quantite_payee || 0) / (c.quota || 1)));
+    const visuel = (c, cls) => c.image_url
+      ? `<img class="${cls}" src="${esc(urlImageCampagne(c.image_url))}" alt="" loading="lazy">`
+      : `<span class="${cls} dm-sans-photo"><span class="dm-cube">${window.ICO.colis}</span><small>Ajoutez des photos</small></span>`;
+    const prix = (c) => `<span class="cp-prix"><b>${fcfa(c.prix_unitaire)}</b>${c.prix_reference > c.prix_unitaire ? `<s>${fcfa(c.prix_reference)}</s>` : ''}</span>`;
+    const remise = (c) => c.prix_reference > c.prix_unitaire ? Math.round(100 * (1 - c.prix_unitaire / c.prix_reference)) : 0;
+    const jaugeC = (c) => `<span class="cp-jauge"><span class="cp-barre"><span style="width:${pct(c)}%"></span></span>
+      <small><b>${c.quantite_payee || 0}</b> / ${c.quota} payés · ${pct(c)} %</small></span>`;
+    const puces = (c) => `<span class="dm-puce">${c.mode_transport === 'maritime' ? '🚢 Bateau' : '✈️ Avion'}</span>
+      <span class="dm-puce">${window.ICO.personnes}${c.nb_clients || 0} client${(c.nb_clients || 0) > 1 ? 's' : ''}</span>
+      ${['brouillon', 'ouverte'].includes(c.statut) ? `<span class="dm-puce">⏳ ${esc(joursRestants(c.date_cloture))}</span>` : ''}`;
+
+    const galerie = () => `<div class="dm-galerie">${liste.map((c) => `
+      <a class="dm-carte" href="#/campagne/${c.id}">
+        <span class="dm-visuel">${visuel(c, 'dm-photo')}<span class="dm-badge">${badge(c.statut)}</span>
+          ${remise(c) >= 5 ? `<span class="cp-remise">-${remise(c)} %</span>` : ''}</span>
+        <span class="dm-corps">
+          <b class="dm-titre">${esc(c.titre)}</b>
+          ${prix(c)}
+          ${jaugeC(c)}
+          <span class="dm-puces">${puces(c)}</span>
+        </span></a>`).join('')}</div>`;
+    const lignes = () => `<div class="dm-liste">${liste.map((c) => `
+      <a class="dm-ligne" href="#/campagne/${c.id}">
+        ${visuel(c, 'dm-mini')}
+        <span class="dm-ligne-txt"><b class="dm-titre">${esc(c.titre)}</b>${jaugeC(c)}<span class="dm-puces">${puces(c)}</span></span>
+        <span class="dm-ligne-fin">${badge(c.statut)}${prix(c)}<span class="dm-chevron">›</span></span></a>`).join('')}</div>`;
+
+    vue.innerHTML = `${ops.ongletsCampagnes('campagnes')}
+      <div class="dm-entete"><h1>Campagnes</h1>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <div class="dm-vues" role="group" aria-label="Affichage">
+          <button data-vue="galerie" class="${mode === 'galerie' ? 'actif' : ''}"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg>Galerie</button>
+          <button data-vue="liste" class="${mode === 'liste' ? 'actif' : ''}"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="5" height="5" rx="1.5"/><rect x="3" y="15" width="5" height="5" rx="1.5"/><path d="M11 6h10M11 9h6M11 17h10M11 20h6"/></svg>Liste</button>
+        </div>
+        <a class="btn btn-petit" href="#/campagne/nouvelle">+ Nouvelle</a></div></div>
+      <div class="filtres">${filtres.map(([k, l]) => `<button class="${k === f ? 'actif' : ''}" data-f="${k}">${l}<span class="dm-compte">${data.filter((c) => garde(c, k)).length}</span></button>`).join('')}</div>
+      ${liste.length ? (mode === 'liste' ? lignes() : galerie())
+        : `<div class="carte vide"><span class="dm-cube grand">${window.ICO.colis}</span><p>${data.length ? 'Aucune campagne dans ce filtre.' : 'Aucune campagne. Créez la première, ou partez d\'un produit à l\'étude.'}</p></div>`}`;
+    vue.querySelectorAll('img.dm-photo, img.dm-mini').forEach((im) => im.addEventListener('error', () => {
+      const r = document.createElement('span'); r.className = im.className + ' dm-sans-photo';
+      r.innerHTML = `<span class="dm-cube">${window.ICO.colis}</span><small>Photo indisponible</small>`; im.replaceWith(r);
+    }));
+    vue.querySelectorAll('[data-f]').forEach((b) => b.addEventListener('click', () => { location.hash = '#/campagnes?' + new URLSearchParams({ f: b.dataset.f, vue: mode }); }));
+    vue.querySelectorAll('[data-vue]').forEach((b) => b.addEventListener('click', () => {
+      memoVue(b.dataset.vue); location.hash = '#/campagnes?' + new URLSearchParams({ f, vue: b.dataset.vue });
+    }));
   }
 
   async function vueCampagne(id) {

@@ -1191,3 +1191,36 @@ body.avec-wa main { padding-bottom: 72px; }
 .photo-edit img { width: 100%; height: 100%; object-fit: cover; }
 .photo-couv { position: absolute; left: 0; right: 0; bottom: 0; background: var(--accent); color: #fff; font-size: .66rem; font-weight: 700; text-align: center; padding: 2px; }
 .photo-suppr { position: absolute; top: 4px; right: 4px; width: 24px; height: 24px; border-radius: 50%; border: 0; background: rgba(29,27,24,.75); color: #fff; cursor: pointer; font-size: .8rem; }
+
+/* ===================== Campagnes (équipe) : galerie / liste ===================== */
+.cp-prix { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.cp-prix b { font-size: 1.15rem; color: var(--accent-fonce); }
+.cp-prix s { color: var(--encre-3); font-size: .85rem; }
+.cp-remise { position: absolute; top: 10px; left: 10px; background: linear-gradient(180deg, #2fb36b, #198a4e); color: #fff; font-weight: 800; font-size: .8rem;
+  padding: 4px 9px; border-radius: 10px; box-shadow: 0 4px 10px rgba(25,138,78,.4), inset 0 1px 0 rgba(255,255,255,.35); }
+.cp-jauge { display: grid; gap: 4px; }
+.cp-barre { display: block; height: 10px; border-radius: 99px; background: #efe8de; box-shadow: inset 0 1px 3px rgba(0,0,0,.12); overflow: hidden; }
+.cp-barre > span { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, #ff8a3d, #d9480f);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.45); min-width: 4px; }
+.cp-jauge small { color: var(--encre-2); font-size: .78rem; }
+.dm-ligne .cp-jauge { max-width: 360px; }
+
+/* ===================== Espace équipe : relief général ===================== */
+.espace-equipe .carte { background: linear-gradient(180deg, #ffffff 0%, #fdfbf8 100%); border: 1px solid rgba(29,27,24,.06);
+  box-shadow: 0 1px 0 #fff inset, 0 1px 2px rgba(29,27,24,.05), 0 10px 24px -14px rgba(29,27,24,.22); border-radius: 20px; }
+/* Les listes (paiements, colis, utilisateurs, commissions…) : une carte en relief par ligne */
+.espace-equipe .carte.grille-lignes { background: none; border: 0; box-shadow: none; padding: 0; display: grid; gap: 12px; }
+@media (min-width: 900px) { .espace-equipe .carte.grille-lignes { grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 16px; } }
+.espace-equipe .carte.grille-lignes > .ligne { background: linear-gradient(180deg, #ffffff, #fdfbf8); border: 1px solid rgba(29,27,24,.06); border-radius: 18px;
+  padding: 14px 16px; box-shadow: 0 1px 0 #fff inset, 0 1px 2px rgba(29,27,24,.06), 0 8px 18px -10px rgba(29,27,24,.22);
+  transition: transform .15s ease, box-shadow .15s ease; }
+.espace-equipe .carte.grille-lignes > a.ligne:hover { transform: translateY(-3px);
+  box-shadow: 0 1px 0 #fff inset, 0 2px 4px rgba(29,27,24,.06), 0 16px 26px -12px rgba(29,27,24,.28), 0 20px 36px -24px rgba(217,72,15,.3); }
+.espace-equipe .carte.grille-lignes > .ligne:last-child { border-bottom: 1px solid rgba(29,27,24,.06); }
+.espace-equipe .carte.grille-lignes > p.discret { background: #fff; border-radius: 18px; padding: 18px; text-align: center; }
+.espace-equipe .vignette { width: 56px; height: 56px; border-radius: 14px; box-shadow: 0 4px 10px rgba(29,27,24,.18); }
+/* Tuiles de l'accueil : petits blocs en relief */
+.espace-equipe .tuile { border-radius: 20px; box-shadow: 0 1px 0 rgba(255,255,255,.7) inset, 0 10px 22px -12px rgba(29,27,24,.3); transition: transform .15s ease; }
+.espace-equipe .tuile:hover { transform: translateY(-3px); }
+.espace-equipe .tuile-ico { filter: drop-shadow(0 4px 6px rgba(0,0,0,.18)); }
+@media (min-width: 900px) { .espace-equipe .tuiles { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); } }
