@@ -1158,3 +1158,13 @@ body.avec-wa main { padding-bottom: 72px; }
   .dm-chevron { display: none; }
   .dm-vues button { padding: 7px 10px; }
 }
+.economie { font-size: .8rem; color: var(--ok); font-weight: 600; margin: -2px 0 6px; }
+.economie b { font-weight: 800; }
+.encart-economie { display: grid; gap: 6px; margin: 12px 0; padding: 12px 14px; border-radius: 14px; background: linear-gradient(180deg, #effaf3, #e3f5ea);
+  border: 1px solid #c4e9d2; box-shadow: 0 6px 14px -8px rgba(22,125,70,.35); }
+.encart-economie > div { display: flex; justify-content: space-between; gap: 10px; font-size: .92rem; }
+.encart-economie > div span { color: var(--encre-2); }
+.encart-economie > div:first-child b { text-decoration: line-through; color: var(--encre-3); font-weight: 600; }
+.encart-total { border-top: 1px dashed #a9dcbd; padding-top: 6px; font-size: 1.02rem !important; }
+.encart-total b { color: var(--ok); font-size: 1.1rem; }
+.encart-economie p { margin: 2px 0 0; font-size: .8rem; color: var(--encre-2); }

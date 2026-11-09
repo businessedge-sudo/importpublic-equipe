@@ -371,7 +371,7 @@
         <div class="aide">Le client devra choisir une option pour chaque ligne. Évitez de les modifier une fois des commandes passées.</div>
         <label for="pref">Prix habituel à Lomé (F, facultatif)</label>
         <input id="pref" type="number" inputmode="numeric" min="1" value="${esc(c.prix_reference || '')}" placeholder="Ex. : 29990">
-        <div class="aide">S'il est renseigné, il s'affiche barré à côté de votre prix, avec le pourcentage d'économie. Indiquez un prix réellement constaté.</div>
+        <div class="aide">C'est l'argument n° 1 : il s'affiche barré, avec « Vous économisez X F ». Mettez un prix que vous avez réellement relevé (boutique, marché, page Facebook d'un vendeur de Lomé) et gardez la preuve (photo, capture).</div>
         <div class="rangee">
           <div><label for="cloture">Clôture</label><input id="cloture" type="datetime-local" required value="${local(c.date_cloture)}"></div>
           <div><label for="mode">Transport</label><select id="mode"><option value="aerien" ${c.mode_transport === 'aerien' ? 'selected' : ''}>Aérien</option>
