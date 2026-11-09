@@ -354,9 +354,11 @@
         <h2>${nouvelle ? 'Nouvelle campagne' : 'Modifier'}</h2>
         <label for="titre">Produit</label><input id="titre" required value="${esc(c.titre)}" placeholder="Ex. : Montre connectée T800 Ultra">
         <label for="desc">Description</label><textarea id="desc" placeholder="Caractéristiques, couleurs, garantie…">${esc(c.description || '')}</textarea>
-        <label for="img">Photo</label>
-        ${c.image_url ? `<img class="photo-apercu" id="apercu" src="${esc(urlImageCampagne(c.image_url))}" alt="">` : '<img class="photo-apercu" id="apercu" hidden alt="">'}
-        <input id="img" type="file" accept="image/*">
+        <label for="img">Photos du produit <small class="discret">(jusqu'à 10 · la 1re est la couverture)</small></label>
+        <div class="photos-edit" id="photos-edit"></div>
+        <input id="img" type="file" accept="image/*" multiple hidden>
+        <button type="button" class="btn btn-second" id="ajout-photos">📷 Ajouter des photos</button>
+        <div class="aide">Montrez le produit sous tous ses angles : face, côté, plié, détails, dimensions, emballage. Touchez une photo pour en faire la couverture.</div>
         <div class="rangee">
           <div><label for="prix">Prix unitaire (F)</label><input id="prix" type="number" inputmode="numeric" min="1" required value="${esc(c.prix_unitaire)}"></div>
           <div><label for="tp">Prix</label><select id="tp"><option value="TTC" ${c.type_prix === 'TTC' ? 'selected' : ''}>TTC (tout compris)</option>
@@ -383,28 +385,50 @@
       </form>
       </div></div>`;
 
-    // Photo
+    // Photos : existantes (chemins) + nouvelles (fichiers), dans l'ordre affiché
     const fichier = document.getElementById('img');
+    let photos = (Array.isArray(c.images) && c.images.length ? c.images : (c.image_url ? [c.image_url] : []))
+      .map((ch) => ({ chemin: ch, url: urlImageCampagne(ch) }));
+    const dessinerPhotos = () => {
+      const z = document.getElementById('photos-edit');
+      z.innerHTML = photos.length ? photos.map((p, i) => `<div class="photo-edit${i === 0 ? ' couverture' : ''}" data-i="${i}">
+          <img src="${esc(p.url)}" alt="">${i === 0 ? '<span class="photo-couv">Couverture</span>' : ''}
+          <button type="button" class="photo-suppr" data-suppr="${i}" aria-label="Retirer la photo">✕</button></div>`).join('')
+        : '<p class="discret" style="margin:0">Aucune photo pour l\'instant.</p>';
+      z.querySelectorAll('[data-suppr]').forEach((b) => b.addEventListener('click', (e) => {
+        e.stopPropagation(); photos.splice(Number(b.dataset.suppr), 1); dessinerPhotos();
+      }));
+      z.querySelectorAll('.photo-edit').forEach((el) => el.addEventListener('click', () => {
+        const i = Number(el.dataset.i); if (!i) return;
+        photos.unshift(photos.splice(i, 1)[0]); dessinerPhotos();
+      }));
+    };
+    dessinerPhotos();
+    document.getElementById('ajout-photos').addEventListener('click', () => fichier.click());
     fichier.addEventListener('change', () => {
-      const a = document.getElementById('apercu');
-      if (fichier.files[0]) { a.src = URL.createObjectURL(fichier.files[0]); a.hidden = false; }
+      [...fichier.files].forEach((f) => { if (photos.length < 10) photos.push({ fichier: f, url: URL.createObjectURL(f) }); });
+      if (fichier.files.length && photos.length >= 10) toast('10 photos au maximum');
+      fichier.value = '';
+      dessinerPhotos();
     });
 
     // Enregistrement
     document.getElementById('form-c').addEventListener('submit', (ev) => {
       ev.preventDefault();
       occupe(ev.target.querySelector('button'), async () => {
-        let image_url = c.image_url || null;
-        if (fichier.files[0]) {
-          const blob = await compresserImage(fichier.files[0], 1400, 0.82);
-          const chemin = `${Date.now()}.jpg`;
+        const images = [];
+        for (const [i, p] of photos.entries()) {
+          if (p.chemin) { images.push(p.chemin); continue; }
+          const blob = await compresserImage(p.fichier, 1400, 0.82);
+          const chemin = `${Date.now()}-${i}-${Math.random().toString(36).slice(2, 7)}.jpg`;
           const up = await sb.storage.from('campagnes').upload(chemin, blob, { contentType: 'image/jpeg' });
           if (up.error) { toast(msgErreur(up.error), 'ko'); return; }
-          image_url = chemin;
+          p.chemin = chemin; images.push(chemin);
         }
+        const image_url = images[0] || null;
         const val = (x) => document.getElementById(x).value;
         const ligne = {
-          titre: val('titre').trim(), description: val('desc').trim() || null, image_url,
+          titre: val('titre').trim(), description: val('desc').trim() || null, image_url, images,
           prix_unitaire: parseInt(val('prix'), 10), type_prix: val('tp'),
           frais_transport_unitaire: val('ft') ? parseInt(val('ft'), 10) : null,
           prix_reference: val('pref') ? parseInt(val('pref'), 10) : null,

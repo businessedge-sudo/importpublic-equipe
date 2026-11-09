@@ -1168,3 +1168,26 @@ body.avec-wa main { padding-bottom: 72px; }
 .encart-total { border-top: 1px dashed #a9dcbd; padding-top: 6px; font-size: 1.02rem !important; }
 .encart-total b { color: var(--ok); font-size: 1.1rem; }
 .encart-economie p { margin: 2px 0 0; font-size: .8rem; color: var(--encre-2); }
+
+/* ===================== Plusieurs photos par campagne ===================== */
+.galerie-unique { width: 100%; aspect-ratio: 1 / 1; object-fit: contain; background: #fff; display: block; }
+.galerie { position: relative; background: #fff; }
+.galerie-piste { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; }
+.galerie-piste::-webkit-scrollbar { display: none; }
+.galerie-piste img { flex: 0 0 100%; width: 100%; aspect-ratio: 1 / 1; object-fit: contain; scroll-snap-align: start; background: #fff; }
+.galerie-fleche { position: absolute; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; border-radius: 50%; border: 0; cursor: pointer;
+  background: rgba(255,255,255,.92); box-shadow: 0 4px 12px rgba(0,0,0,.18); font-size: 1.6rem; line-height: 1; color: var(--encre); display: grid; place-items: center; }
+.g-prec { left: 10px; } .g-suiv { right: 10px; }
+.galerie-compteur { position: absolute; bottom: 10px; right: 10px; background: rgba(29,27,24,.7); color: #fff; font-size: .78rem; font-weight: 600; padding: 3px 9px; border-radius: 99px; }
+.galerie-minis { display: flex; gap: 8px; overflow-x: auto; padding: 10px 12px; border-top: 1px solid var(--ligne); }
+.galerie-minis button { flex: none; width: 58px; height: 58px; padding: 0; border: 2px solid transparent; border-radius: 10px; overflow: hidden; background: #fff; cursor: pointer; opacity: .7; }
+.galerie-minis button.actif { border-color: var(--accent); opacity: 1; }
+.galerie-minis img { width: 100%; height: 100%; object-fit: cover; }
+@media (hover: none) { .galerie-fleche { display: none; } }
+
+.photos-edit { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; margin: 6px 0 8px; }
+.photo-edit { position: relative; aspect-ratio: 1; border-radius: 12px; overflow: hidden; cursor: pointer; border: 2px solid var(--ligne); background: #fff; }
+.photo-edit.couverture { border-color: var(--accent); }
+.photo-edit img { width: 100%; height: 100%; object-fit: cover; }
+.photo-couv { position: absolute; left: 0; right: 0; bottom: 0; background: var(--accent); color: #fff; font-size: .66rem; font-weight: 700; text-align: center; padding: 2px; }
+.photo-suppr { position: absolute; top: 4px; right: 4px; width: 24px; height: 24px; border-radius: 50%; border: 0; background: rgba(29,27,24,.75); color: #fff; cursor: pointer; font-size: .8rem; }
