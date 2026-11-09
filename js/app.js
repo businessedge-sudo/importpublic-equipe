@@ -576,7 +576,7 @@
           <dt>Quantité</dt><dd>${d.quantite}</dd>
           <dt>Budget</dt><dd>${d.budget ? fcfa(d.budget) : '—'}</dd>
           <dt>Transport</dt><dd>${d.mode_transport ? esc(lib(d.mode_transport)) : 'Pas de préférence'}</dd>
-          ${d.lien ? `<dt>Lien</dt><dd><a href="${esc(d.lien)}" target="_blank" rel="noopener">Ouvrir le produit</a></dd>` : ''}
+          ${d.lien ? `<dt>Lien</dt><dd>${/^https?:\/\//i.test(d.lien) ? `<a href="${esc(d.lien)}" target="_blank" rel="noopener">Ouvrir le produit</a>` : esc(d.lien)}</dd>` : ''}
           <dt>Client</dt><dd>${esc(cl.nom_complet || '—')}</dd>
           <dt>Livraison</dt><dd>${esc(nomPays(cl.pays))}${cl.region ? ' · ' + esc(cl.region) : ''}</dd>
           <dt>Contact</dt><dd>${cl.telephone ? `<a href="${waLien(cl.telephone)}" target="_blank" rel="noopener">${esc(cl.telephone)}</a>` : '—'} · ${esc(cl.email || '')}</dd>
