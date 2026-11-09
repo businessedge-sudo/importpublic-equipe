@@ -61,7 +61,24 @@
       const auteur = (m) => {
         if (!m.de_equipe) return equipe ? (noms.client || 'Client') : '';
         if (!equipe) return 'Import Public';
+        if (!m.auteur_id) return 'Message automatique';
         return m.auteur_id === monId ? 'Vous' : (noms[m.auteur_id] || 'Équipe');
+      };
+      // Documents joints aux messages (devis, reçu, avis…)
+      const docs = new Map();
+      async function chargerDocs(ids) {
+        const manquants = [...new Set(ids.filter((x) => x && !docs.has(x)))];
+        if (!manquants.length) return;
+        const { data: dd } = await sb.from('documents').select('id,numero,type,total,remplace').in('id', manquants);
+        (dd || []).forEach((d) => docs.set(d.id, d));
+      }
+      const carteDoc = (id) => {
+        const d = docs.get(id);
+        if (!d) return '';
+        const nom = window.IP_DOCS ? window.IP_DOCS.libelle(d.type) : 'Document';
+        return `<a class="msg-doc" href="#/document/${d.id}">${I.fichier}<span><b>${esc(nom)} n° ${esc(d.numero)}</b>
+          <small>${d.remplace ? 'Remplacé par un devis plus récent' : 'Voir, enregistrer en PDF' + (d.type === 'devis' ? ', accepter' : '')}</small></span>
+          <em>${window.IA.fcfa(d.total)}</em></a>`;
       };
 
       async function urlPiece(path) {
@@ -84,7 +101,7 @@
               : `<a class="msg-fichier" data-pj="${esc(m.piece_path)}" target="_blank" rel="noopener" download="${esc(m.piece_nom || 'fichier')}">
                    ${I.fichier}<span><b>${esc(m.piece_nom || 'Fichier')}</b><small>${m.piece_taille ? taille(m.piece_taille) : ''}</small></span>${I.telecharger}</a>`;
           }
-          corps = pj + (m.texte ? `<p>${enrichir(m.texte)}</p>` : '');
+          corps = pj + (m.texte ? `<p>${enrichir(m.texte)}</p>` : '') + (m.document_id ? carteDoc(m.document_id) : '');
         }
         const a = auteur(m);
         return `<div class="msg msg-${cote(m)}" data-id="${m.id}">
@@ -146,6 +163,7 @@
         .order('cree_le', { ascending: false }).limit(200);
       if (error) throw error;
       (data || []).forEach((m) => msgs.set(m.id, m));
+      await chargerDocs((data || []).map((m) => m.document_id));
       dessiner(true);
       const marquerLu = () => sb.rpc('marquer_conversation_lue', { p_client: clientId }).then(() => {}, () => {});
       marquerLu();
@@ -216,7 +234,8 @@
           if (!m || !m.id) return;
           const nouveau = !msgs.has(m.id);
           msgs.set(m.id, m);
-          dessiner(nouveau);
+          if (m.document_id && !docs.has(m.document_id)) chargerDocs([m.document_id]).then(() => dessiner(nouveau));
+          else dessiner(nouveau);
           if (nouveau && document.visibilityState === 'visible') marquerLu();
         })
         .subscribe();

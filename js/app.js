@@ -122,7 +122,7 @@
     const routes = { '': vueAccueil, paiements: vuePaiements, campagnes: vueCampagnes, campagne: vueCampagne,
                      demandes: vueDemandes, demande: vueDemande, colis: vueColis, reseau: vueReseau, reglages: vueReglages,
                      pistes: ops.vuePistes, piste: ops.vuePiste, utilisateurs: ops.vueUtilisateurs,
-                     messages: vueMessages, alertes: vueAlertes };
+                     messages: vueMessages, alertes: vueAlertes, document: vueDocument };
     vue.innerHTML = '<div class="chargement">Chargement…</div>';
     Promise.resolve((routes[m[0] || ''] || vueAccueil)(m[1], params)).catch((e) => {
       vue.innerHTML = `<div class="carte"><div class="alerte alerte-ko">${esc(msgErreur(e))}</div>
@@ -476,26 +476,32 @@
       if (error) toast(msgErreur(error), 'ko'); else router();
     })));
     vue.querySelectorAll('[data-annuler]').forEach((b) => b.addEventListener('click', () => {
-      if (!confirm('Annuler cette commande non payée ?')) return;
+      const motif = prompt('Annuler cette commande non payée ?\nMotif communiqué au client (facultatif) :', '');
+      if (motif === null) return;
       occupe(b, async () => {
-        const { error } = await sb.from('commandes').update({ statut: 'annulee' }).eq('id', b.dataset.annuler);
+        const { error } = await sb.from('commandes').update({ statut: 'annulee', motif_annulation: motif.trim() || null }).eq('id', b.dataset.annuler);
         if (error) toast(msgErreur(error), 'ko'); else { toast('Commande annulée'); router(); }
       });
     }));
     vue.querySelectorAll('[data-retirer-cmd]').forEach((b) => b.addEventListener('click', () => {
-      if (!confirm('Retirer cette commande payée ? Elle passera « à rembourser ».')) return;
+      const motif = prompt('Retirer cette commande payée ? Elle passera « à rembourser » et le client recevra un avis d\'annulation.\nMotif communiqué au client :', '');
+      if (motif === null) return;
       occupe(b, async () => {
-        const { error } = await sb.from('commandes').update({ statut: 'a_rembourser' }).eq('id', b.dataset.retirerCmd);
+        const { error } = await sb.from('commandes').update({ statut: 'a_rembourser', motif_annulation: motif.trim() || null }).eq('id', b.dataset.retirerCmd);
         if (error) toast(msgErreur(error), 'ko'); else { toast('Commande retirée, à rembourser'); router(); }
       });
     }));
     vue.querySelectorAll('[data-rembourser]').forEach((b) => b.addEventListener('click', () => {
-      if (!confirm('Confirmer que ce client a bien été remboursé ?')) return;
+      const ref = prompt('Le client a bien été remboursé ?\nRéférence de la transaction de remboursement (T-Money / Flooz), affichée sur son avis :', '');
+      if (ref === null) return;
       occupe(b, async () => {
-        const { error } = await sb.from('commandes').update({ statut: 'remboursee' }).eq('id', b.dataset.rembourser);
-        if (error) { toast(msgErreur(error), 'ko'); return; }
-        await sb.from('paiements').update({ statut: 'rembourse' }).eq('commande_id', b.dataset.rembourser).eq('statut', 'confirme');
-        router();
+        const { data: pp } = await sb.from('paiements').select('id').eq('commande_id', b.dataset.rembourser).eq('statut', 'confirme');
+        for (const p of pp || []) {
+          const { error } = await sb.rpc('marquer_rembourse', { p_paiement: p.id, p_reference: ref.trim() || null });
+          if (error) { toast(msgErreur(error), 'ko'); return; }
+        }
+        if (!(pp || []).length) await sb.from('commandes').update({ statut: 'remboursee' }).eq('id', b.dataset.rembourser);
+        toast('Remboursement enregistré · avis envoyé au client'); router();
       });
     }));
   }
@@ -523,6 +529,7 @@
   }
 
   async function vueDemande(id) {
+    if (etat.canal) { sb.removeChannel(etat.canal); etat.canal = null; }
     const { data: d, error } = await sb.from('demandes').select('*, profils(nom_complet,telephone,email,pays,region)').eq('id', id).maybeSingle();
     if (error) throw error;
     if (!d) { vue.innerHTML = '<div class="carte vide">Demande introuvable.</div>'; return; }
@@ -534,6 +541,29 @@
     const lienSuivi = `${cfg.urlSite}/#/demande/${d.id}`;
     const opsDemande = await ops.sectionDemande(d);
     const chiffrage = ops.aideChiffrage(d);
+    const [{ data: docs }, { data: paies }] = await Promise.all([
+      sb.from('documents').select('id,numero,type,total,remplace,cree_le').eq('demande_id', d.id).order('cree_le', { ascending: false }),
+      sb.from('paiements').select('id,montant,statut,operateur,numero_payeur').eq('demande_id', d.id)
+    ]);
+    const devis = (docs || []).find((x) => x.type === 'devis' && !x.remplace);
+    const aRembourser = d.statut === 'annulee' ? (paies || []).filter((p) => p.statut === 'confirme') : [];
+    const prenom = (cl.nom_complet || '').split(' ')[0] || '';
+    const texteWa = (n) => `Bonjour ${prenom}, c'est l'équipe Import Public. Votre devis${devis ? ' n° ' + devis.numero : ''} pour « ${(d.description || '').slice(0, 60)} » (${fcfa(d.montant_devis)}, livré à Lomé) vous attend. `
+      + `Vous pouvez le consulter, poser vos questions et le régler directement dans votre messagerie Import Public : ${cfg.urlSite}/#/messages${n >= 4 ? ' . Sans réponse de votre part, nous clôturerons cette demande dans quelques jours.' : ''} Merci !`;
+    const opt = (vals, cur, fmt) => vals.map((v) => `<option value="${v}"${Number(cur) === v ? ' selected' : ''}>${fmt(v)}</option>`).join('');
+    const blocRelances = d.statut === 'devis_envoye' ? `<div class="carte relances-etat">
+        <h2>Relances du devis</h2>
+        ${d.relance_wa_a_faire ? `<div class="alerte alerte-alerte">Relance n° ${d.relance_wa_a_faire} à envoyer sur WhatsApp.</div>
+          ${cl.telephone ? `<a class="btn btn-wa btn-large" id="relance-wa" target="_blank" rel="noopener" href="${waLien(cl.telephone, texteWa(d.relance_wa_a_faire))}">Envoyer la relance WhatsApp</a>` : '<p class="discret">Pas de numéro WhatsApp pour ce client.</p>'}
+          <button class="btn btn-second" id="relance-wa-faite">J'ai envoyé la relance</button>` : ''}
+        <p>${d.relances_prevues ? `${d.relances_faites} / ${d.relances_prevues} relance(s) faite(s)` : 'Aucune relance programmée.'}
+          ${d.prochaine_relance_le ? ` · prochaine le <b>${esc(date(d.prochaine_relance_le, true))}</b>` : ''}</p>
+        <p class="aide">Relances 1${d.relance_wa_des > 2 ? ' à ' + (d.relance_wa_des - 1) : ''} : message automatique dans la messagerie + alerte au client.
+          À partir de la n° ${d.relance_wa_des} : vous êtes alerté, et vous l'envoyez sur WhatsApp en un clic. Tout s'arrête si le client répond.</p>
+        ${!d.relance_wa_a_faire ? '<button class="btn btn-second btn-petit" id="relancer">Relancer maintenant</button>' : ''}
+      </div>` : '';
+    const blocDocs = (docs || []).length ? `<div class="carte"><h2>Documents envoyés</h2><div class="liste-docs">${docs.map((x) => `
+        <a href="#/document/${x.id}"><span><b>${esc(window.IP_DOCS.libelle(x.type))}</b> <small>n° ${esc(x.numero)} · ${esc(date(x.cree_le))}${x.remplace ? ' · remplacé' : ''}</small></span><b>${fcfa(x.total)}</b></a>`).join('')}</div></div>` : '';
 
     vue.innerHTML = `
       <a class="retour" href="#/demandes">← Sur mesure</a>
@@ -553,16 +583,29 @@
           <dt>Reçue le</dt><dd>${date(d.created_at, true)}</dd>
         </dl>
       </div>
+      ${estSupport() ? `<div class="carte"><h2>Discussion avec ${esc(cl.nom_complet || 'le client')}</h2>
+        <p class="discret">Posez vos questions avant d'envoyer le prix. Le client répond depuis l'onglet Messages du site.</p>
+        <div id="zone-chat"></div></div>` : ''}
       </div><div class="colonne">
       ${peutChiffrer ? `<form class="carte" id="form-devis">
         <h2>${d.statut === 'nouvelle' ? 'Envoyer un prix' : 'Modifier le devis'}</h2>
         ${chiffrage.html}
         <label for="montant">Prix total livré à Lomé (F CFA)</label>
         <input id="montant" type="number" inputmode="numeric" min="1" required value="${esc(d.montant_devis || '')}">
-        <label for="note">Message au client</label>
+        <label for="note">Message au client (affiché sur le devis)</label>
         <textarea id="note" placeholder="Ex. : Modèle disponible en noir, livraison aérien sous 3 semaines.">${esc(d.note_devis || '')}</textarea>
-        <button class="btn btn-large" style="margin-top:14px">Envoyer le devis</button>
+        <fieldset class="relances-choix"><legend>Relances si le client ne répond pas</legend>
+          <div class="rangee">
+            <div><label for="rl-nb">Nombre</label><select id="rl-nb">${opt([0, 1, 2, 3, 4], d.statut === 'nouvelle' ? 3 : d.relances_prevues, (v) => v === 0 ? 'Aucune' : v + ' relance' + (v > 1 ? 's' : ''))}</select></div>
+            <div><label for="rl-int">Espacées de</label><select id="rl-int">${opt([24, 48, 72], d.relance_intervalle_h || 48, (v) => v / 24 + ' jour' + (v > 24 ? 's' : ''))}</select></div>
+            <div><label for="rl-wa">Par WhatsApp dès la</label><select id="rl-wa">${opt([1, 2, 3, 4], d.relance_wa_des || 3, (v) => v + (v === 1 ? 're' : 'e') + ' relance')}</select></div>
+          </div>
+          <p class="aide">Les premières relances partent seules dans la messagerie. Pour WhatsApp, vous recevez une alerte et l'envoyez en un clic (message prêt).</p>
+        </fieldset>
+        <p class="aide">Le client reçoit un devis numéroté (format facture) dans sa messagerie, avec le bouton « Accepter et payer ».</p>
+        <button class="btn btn-large" style="margin-top:14px">${d.statut === 'nouvelle' ? 'Envoyer le devis' : 'Envoyer le devis modifié'}</button>
       </form>` : ''}
+      ${blocRelances}
       ${d.montant_devis && !peutChiffrer ? `<div class="carte"><b>Devis : ${fcfa(d.montant_devis)}</b>${d.note_devis ? `<p class="discret" style="white-space:pre-line;margin-top:6px">${esc(d.note_devis)}</p>` : ''}</div>` : ''}
       <div class="carte">
         <h2>Étape</h2>
@@ -571,10 +614,44 @@
           ${suivant ? `<button class="btn" id="avancer">${esc(ACTION[suivant])}</button>` : ''}
           ${!['livree', 'annulee', 'refusee'].includes(d.statut) ? `<button class="btn btn-ko" id="annuler">Annuler la demande</button>` : ''}
         </div>
+        ${aRembourser.length ? `<div class="alerte alerte-alerte" style="margin-top:10px">Le client avait payé ${fcfa(aRembourser.reduce((t, p) => t + Number(p.montant), 0))} : à rembourser.</div>
+          <button class="btn" id="rembourser-dem">Marquer comme remboursé</button>` : ''}
         <div id="zone-wa"></div>
       </div>
+      ${blocDocs}
       ${opsDemande.html}
       </div></div>`;
+    if (estSupport()) {
+      const { data: eq } = await sb.from('profils').select('id,nom_complet').in('role', ['admin', 'assistant']);
+      const noms = { client: cl.nom_complet || 'Client' };
+      (eq || []).forEach((x) => { noms[x.id] = (x.nom_complet || 'Équipe').split(' ')[0]; });
+      etat.canal = await chat.monter(document.getElementById('zone-chat'), d.client_id, etat.profil.id, {
+        noms, vide: '<p>Aucun message pour l\'instant.</p>' });
+    }
+    const bWa = document.getElementById('relance-wa-faite');
+    if (bWa) bWa.addEventListener('click', () => occupe(bWa, async () => {
+      const { error: e } = await sb.rpc('relance_wa_faite', { p_demande: d.id, p_texte: texteWa(d.relance_wa_a_faire) });
+      if (e) { toast(msgErreur(e), 'ko'); return; }
+      toast('Relance notée'); router();
+    }));
+    const bRel = document.getElementById('relancer');
+    if (bRel) bRel.addEventListener('click', () => occupe(bRel, async () => {
+      const { error: e } = await sb.rpc('relancer_maintenant', { p_demande: d.id });
+      if (e) { toast(msgErreur(e), 'ko'); return; }
+      toast('Relance envoyée'); router();
+    }));
+    const bRb = document.getElementById('rembourser-dem');
+    if (bRb) bRb.addEventListener('click', () => {
+      const ref = prompt('Référence de la transaction de remboursement (affichée sur l\'avis du client) :', '');
+      if (ref === null) return;
+      occupe(bRb, async () => {
+        for (const p of aRembourser) {
+          const { error: e } = await sb.rpc('marquer_rembourse', { p_paiement: p.id, p_reference: ref.trim() || null });
+          if (e) { toast(msgErreur(e), 'ko'); return; }
+        }
+        toast('Remboursement enregistré · avis envoyé au client'); router();
+      });
+    });
 
     const proposerWa = (texte) => {
       if (!cl.telephone) return;
@@ -591,12 +668,14 @@
         const montant = parseInt(document.getElementById('montant').value, 10);
         const { error } = await sb.from('demandes').update({
           montant_devis: montant, note_devis: document.getElementById('note').value.trim() || null, statut: 'devis_envoye',
-          chiffrage: chiffrage.lire()
+          chiffrage: chiffrage.lire(),
+          relances_prevues: Number(document.getElementById('rl-nb').value),
+          relance_intervalle_h: Number(document.getElementById('rl-int').value),
+          relance_wa_des: Number(document.getElementById('rl-wa').value)
         }).eq('id', d.id);
         if (error) { toast(msgErreur(error), 'ko'); return; }
-        toast('Devis envoyé');
-        await vueDemande(d.id);
-        proposerWa(`votre prix pour votre demande sur mesure est prêt : ${fcfa(montant)} livré à Lomé. Vous pouvez l'accepter et payer en ligne.`);
+        toast('Devis envoyé dans la messagerie du client');
+        router();
       });
     });
 
@@ -611,9 +690,11 @@
 
     const an = document.getElementById('annuler');
     if (an) an.addEventListener('click', () => {
-      if (!confirm('Annuler cette demande ?' + (['payee', 'commandee', 'entrepot_chine', 'en_transit', 'arrivee'].includes(d.statut) ? ' Le client a déjà payé : pensez à le rembourser.' : ''))) return;
+      const motif = prompt('Annuler cette demande ?' + (['payee', 'commandee', 'entrepot_chine', 'en_transit', 'arrivee'].includes(d.statut) ? ' Le client a déjà payé : il sera remboursé.' : '')
+        + '\nMotif communiqué au client (sur l\'avis d\'annulation) :', '');
+      if (motif === null) return;
       occupe(an, async () => {
-        const { error } = await sb.from('demandes').update({ statut: 'annulee' }).eq('id', d.id);
+        const { error } = await sb.from('demandes').update({ statut: 'annulee', motif_annulation: motif.trim() || null }).eq('id', d.id);
         if (error) toast(msgErreur(error), 'ko'); else router();
       });
     });
@@ -704,6 +785,18 @@
     etat.canal = await chat.monter(document.getElementById('zone-chat'), clientId, etat.profil.id, {
       noms, vide: '<p>Aucun message. Écrivez le premier : le client recevra une alerte.</p>' });
     majBadges();
+  }
+
+  // Document client (même rendu que chez le client)
+  async function vueDocument(id) {
+    const { data: doc, error } = await sb.from('documents').select('*').eq('id', id).maybeSingle();
+    if (error) throw error;
+    if (!doc) { vue.innerHTML = '<div class="carte vide">Document introuvable.</div>'; return; }
+    const retour = doc.demande_id ? '#/demande/' + doc.demande_id : '#/messages/' + doc.client_id;
+    vue.innerHTML = `<a class="retour" href="${retour}">← Retour</a>${window.IP_DOCS.html(doc)}
+      <div class="doc-actions"><button class="btn btn-second" id="doc-imprimer">${window.ICO.telecharger}Enregistrer en PDF</button>
+      <a class="btn btn-second" href="#/messages/${doc.client_id}">${window.ICO.bulle}Conversation du client</a></div>`;
+    document.getElementById('doc-imprimer').addEventListener('click', () => window.print());
   }
 
   // Alertes de ce téléphone (accessible à toute l'équipe, y compris les points de retrait)
