@@ -43,7 +43,7 @@ window.IP_OPS = function (ctx) {
     };
   }
   const tonMarge = (m) => (m >= MARGE_CIBLE ? 'ok' : m >= MARGE_CIBLE / 2 ? 'alerte' : 'ko');
-  const pct = (x) => (x == null ? '—' : Math.round(x * 1000) / 10 + ' %');
+  const pct = (x) => (x == null ? '-' : Math.round(x * 1000) / 10 + ' %');
 
   async function vuePistes(_, params) {
     const f = params.get('f') || 'en_cours';
@@ -75,9 +75,9 @@ window.IP_OPS = function (ctx) {
       </div>
       ${p.statut !== 'abandonnee' ? `<div class="piste-progression">${ETAPES_PISTE.map((_, j) => `<span class="${j <= i ? 'fait' : ''}"></span>`).join('')}</div>` : ''}
       <div class="piste-chiffres">
-        <div><small>Prix de vente</small><b>${c.vente ? fcfa(Math.round(c.vente)) : '—'}</b></div>
-        <div><small>Coût de revient</small><b>${c.achat ? fcfa(Math.round(c.revient)) : '—'}</b></div>
-        <div><small>Marge / unité</small><b class="marge-${c.vente && c.achat ? tonMarge(c.marge) : 'neutre'}">${c.vente && c.achat ? fcfa(Math.round(c.marge)) : '—'}</b></div>
+        <div><small>Prix de vente</small><b>${c.vente ? fcfa(Math.round(c.vente)) : '-'}</b></div>
+        <div><small>Coût de revient</small><b>${c.achat ? fcfa(Math.round(c.revient)) : '-'}</b></div>
+        <div><small>Marge / unité</small><b class="marge-${c.vente && c.achat ? tonMarge(c.marge) : 'neutre'}">${c.vente && c.achat ? fcfa(Math.round(c.marge)) : '-'}</b></div>
       </div></a>`;
   }
 
@@ -192,7 +192,7 @@ window.IP_OPS = function (ctx) {
       document.getElementById('calcul').innerHTML = `
         <h2>Calcul de la marge</h2>
         <div class="marge-principale marge-fond-${c.vente && c.achat ? tonMarge(c.marge) : 'neutre'}">
-          <small>Marge par unité</small><b>${c.vente && c.achat ? fcfa(Math.round(c.marge)) : '—'}</b>
+          <small>Marge par unité</small><b>${c.vente && c.achat ? fcfa(Math.round(c.marge)) : '-'}</b>
           <span>${c.vente && c.achat ? pct(c.margePct) + ' du prix de vente · objectif ' + fcfa(MARGE_CIBLE) : 'Renseignez au moins le prix fournisseur et le prix de vente'}</span>
         </div>
         <table class="tableau-calcul"><tbody>
@@ -201,10 +201,10 @@ window.IP_OPS = function (ctx) {
           ${ligne('Coût de revient', c.revient, true)}${ligne('Prix de vente', c.vente)}
         </tbody></table>
         <dl class="cle-valeur">
-          <dt>Prix conseillé (marge ${fcfa(MARGE_CIBLE)})</dt><dd><b>${c.achat ? fcfa(Math.ceil(c.prixConseille / 100) * 100) : '—'}</b></dd>
-          <dt>Économie pour le client</dt><dd>${c.remiseMarche == null ? '—' : c.remiseMarche > 0 ? pct(c.remiseMarche) + ' moins cher qu\'à Lomé' : '<span class="motif">Plus cher qu\'à Lomé</span>'}</dd>
-          <dt>Marge totale au quota</dt><dd><b>${c.quota ? fcfa(Math.round(c.margeTotale)) : '—'}</b></dd>
-          <dt>Argent à avancer</dt><dd>${c.quota ? fcfa(Math.round(c.investissement)) : '—'}</dd>
+          <dt>Prix conseillé (marge ${fcfa(MARGE_CIBLE)})</dt><dd><b>${c.achat ? fcfa(Math.ceil(c.prixConseille / 100) * 100) : '-'}</b></dd>
+          <dt>Économie pour le client</dt><dd>${c.remiseMarche == null ? '-' : c.remiseMarche > 0 ? pct(c.remiseMarche) + ' moins cher qu\'à Lomé' : '<span class="motif">Plus cher qu\'à Lomé</span>'}</dd>
+          <dt>Marge totale au quota</dt><dd><b>${c.quota ? fcfa(Math.round(c.margeTotale)) : '-'}</b></dd>
+          <dt>Argent à avancer</dt><dd>${c.quota ? fcfa(Math.round(c.investissement)) : '-'}</dd>
           ${f.moq && c.quota && c.quota < f.moq ? `<dt>Attention</dt><dd class="motif">Quota inférieur au MOQ (${f.moq})</dd>` : ''}
         </dl>`;
     };
@@ -387,7 +387,7 @@ window.IP_OPS = function (ctx) {
         <table class="tableau-calcul"><tbody>
           <tr><td>Encaissé (${unites} unité${unites > 1 ? 's' : ''} payée${unites > 1 ? 's' : ''})</td><td><b>${fcfa(encaisse)}</b></td></tr>
           <tr><td>Coûts payés</td><td><b>${fcfa(totalCouts)}</b></td></tr>
-          <tr class="total-ligne"><td>Marge réelle</td><td><span class="marge-${totalCouts ? tonMarge(unites ? (encaisse - totalCouts) / unites : 0) : 'neutre'}">${totalCouts ? fcfa(encaisse - totalCouts) : '—'}</span></td></tr>
+          <tr class="total-ligne"><td>Marge réelle</td><td><span class="marge-${totalCouts ? tonMarge(unites ? (encaisse - totalCouts) / unites : 0) : 'neutre'}">${totalCouts ? fcfa(encaisse - totalCouts) : '-'}</span></td></tr>
           ${totalCouts && unites ? `<tr><td>Marge réelle par unité</td><td>${fcfa(Math.round((encaisse - totalCouts) / unites))}</td></tr>` : ''}
           ${estim ? `<tr><td>Marge estimée par unité (<a href="#/piste/${piste.data.id}">étude</a>)</td><td>${fcfa(Math.round(estim.marge))}</td></tr>` : ''}
         </tbody></table>

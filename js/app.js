@@ -268,7 +268,7 @@
         return `<div class="bloc-paiement">
           <div style="display:flex;justify-content:space-between;gap:8px"><b>${fcfa(p.montant)}</b>${badge(p.statut)}</div>
           <div class="ref">${esc(p.reference_externe)}</div>
-          <small>${esc(lib(p.operateur))} · payé par ${esc(p.numero_payeur || '—')} · ${date(p.created_at, true)}</small>
+          <small>${esc(lib(p.operateur))} · payé par ${esc(p.numero_payeur || '-')} · ${date(p.created_at, true)}</small>
           <p style="margin:8px 0 0">${lienObjet ? `<a href="${lienObjet}">${objet}</a>` : objet}<br>
             <small>${esc(client.nom_complet || '')} · ${client.telephone ? `<a href="${waLien(client.telephone)}" target="_blank" rel="noopener">${esc(client.telephone)}</a>` : ''}</small></p>
           ${p.statut === 'initie' ? `<div class="boutons">
@@ -700,12 +700,12 @@
         ${photo ? `<a href="${esc(photo.signedUrl)}" target="_blank" rel="noopener"><img class="photo-apercu" src="${esc(photo.signedUrl)}" alt="Photo du client"></a>` : ''}
         <dl class="cle-valeur" style="margin-top:12px">
           <dt>Quantité</dt><dd>${d.quantite}</dd>
-          <dt>Budget</dt><dd>${d.budget ? fcfa(d.budget) : '—'}</dd>
+          <dt>Budget</dt><dd>${d.budget ? fcfa(d.budget) : '-'}</dd>
           <dt>Transport</dt><dd>${d.mode_transport ? esc(lib(d.mode_transport)) : 'Pas de préférence'}</dd>
           ${d.lien ? `<dt>Lien</dt><dd>${/^https?:\/\//i.test(d.lien) ? `<a href="${esc(d.lien)}" target="_blank" rel="noopener">Ouvrir le produit</a>` : esc(d.lien)}</dd>` : ''}
-          <dt>Client</dt><dd>${esc(cl.nom_complet || '—')}</dd>
+          <dt>Client</dt><dd>${esc(cl.nom_complet || '-')}</dd>
           <dt>Livraison</dt><dd>${esc(nomPays(cl.pays))}${cl.region ? ' · ' + esc(cl.region) : ''}</dd>
-          <dt>Contact</dt><dd>${cl.telephone ? `<a href="${waLien(cl.telephone)}" target="_blank" rel="noopener">${esc(cl.telephone)}</a>` : '—'} · ${esc(cl.email || '')}</dd>
+          <dt>Contact</dt><dd>${cl.telephone ? `<a href="${waLien(cl.telephone)}" target="_blank" rel="noopener">${esc(cl.telephone)}</a>` : '-'} · ${esc(cl.email || '')}</dd>
           <dt>Reçue le</dt><dd>${date(d.created_at, true)}</dd>
         </dl>
       </div>
@@ -889,7 +889,7 @@
         <div><h1 style="margin-bottom:10px">${esc(p.nom_complet || 'Client')}</h1><div id="zone-chat"></div></div>
         <aside class="carte conv-fiche">
           <h2>Client</h2>
-          <div class="ligne-info"><span class="discret">Référence</span><b>${esc(p.reference || '—')}</b></div>
+          <div class="ligne-info"><span class="discret">Référence</span><b>${esc(p.reference || '-')}</b></div>
           ${p.telephone ? `<div class="ligne-info"><span class="discret">Téléphone</span><b>${esc(p.telephone)}</b></div>
             <div style="display:flex;gap:8px;flex-wrap:wrap"><a class="btn btn-second btn-petit" href="tel:${esc(p.telephone)}">Appeler</a>
             <a class="btn btn-second btn-petit" href="${waLien(p.telephone, 'Bonjour ' + (p.nom_complet || '').split(' ')[0] + ', ')}" target="_blank" rel="noopener">WhatsApp</a></div>` : ''}
@@ -1173,7 +1173,7 @@
       <div class="carte grille-lignes">${data.length ? data.map((a) => `
         <div class="ligne">
           <div style="flex:1;min-width:0"><div class="ligne-titre">${esc(a.nom || a.email)} <small class="discret">${esc(a.code)}</small></div>
-            <small>${esc(a.region || '—')} · ${a.telephone ? `<a href="${waLien(a.telephone)}" target="_blank" rel="noopener">${esc(a.telephone)}</a>` : ''} · depuis le ${date(a.adhere_le)} · conditions ${esc(a.conditions_version)}</small>
+            <small>${esc(a.region || '-')} · ${a.telephone ? `<a href="${waLien(a.telephone)}" target="_blank" rel="noopener">${esc(a.telephone)}</a>` : ''} · depuis le ${date(a.adhere_le)} · conditions ${esc(a.conditions_version)}</small>
             <small>${a.clients} client(s) apporté(s) · ${a.assistees} commande(s) assistée(s) · en attente ${fcfa(a.en_attente)} · <b>à payer ${fcfa(a.validees)}</b> · payé ${fcfa(a.payees)}</small>
             <div id="payer-${a.id}"></div></div>
           <div class="actions-ligne">${badge(a.statut)}
@@ -1332,7 +1332,7 @@
           <p class="aide">Un changement s'applique aux commissions créées après. Les commissions déjà enregistrées gardent leur montant.</p>
         </form>
         <div class="carte"><h2>Programme</h2>
-          <p>${nbModules || 0} modules de formation actifs · conditions en vigueur : <b>${esc(cond ? cond.version : '—')}</b>${cond ? ' (publiées le ' + date(cond.publie_le) + ')' : ''}.</p>
+          <p>${nbModules || 0} modules de formation actifs · conditions en vigueur : <b>${esc(cond ? cond.version : '-')}</b>${cond ? ' (publiées le ' + date(cond.publie_le) + ')' : ''}.</p>
           <p class="aide">Pour modifier un module ou publier une nouvelle version des conditions (les ambassadeurs devront la réaccepter), demandez-le à Claude ou modifiez les tables formation_modules et conditions_ac dans Supabase.</p></div>
       </div><div class="colonne">
         <div class="carte"><h2>Derniers versements</h2>
