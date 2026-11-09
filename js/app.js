@@ -674,8 +674,9 @@
     const devis = (docs || []).find((x) => x.type === 'devis' && !x.remplace);
     const aRembourser = d.statut === 'annulee' ? (paies || []).filter((p) => p.statut === 'confirme') : [];
     const prenom = (cl.nom_complet || '').split(' ')[0] || '';
-    const texteWa = (n) => `Bonjour ${prenom}, c'est l'équipe Import Public. Votre devis${devis ? ' n° ' + devis.numero : ''} pour « ${(d.description || '').slice(0, 60)} » (${fcfa(d.montant_devis)}, livré à Lomé) vous attend. `
-      + `Vous pouvez le consulter, poser vos questions et le régler directement dans votre messagerie Import Public : ${cfg.urlSite}/#/messages${n >= 4 ? ' . Sans réponse de votre part, nous clôturerons cette demande dans quelques jours.' : ''} Merci !`;
+    const texteWa = (n) => `Bonjour ${prenom},\n\nNous revenons vers vous au sujet de votre devis${devis ? ' n° ' + devis.numero : ''} pour « ${(d.description || '').slice(0, 60)} », d'un montant de ${fcfa(d.montant_devis)}, livraison à Lomé comprise.\n\n`
+      + `Vous pouvez le retrouver dans votre messagerie Import Public pour le consulter, nous poser vos questions ou procéder au paiement :\n${cfg.urlSite.replace(/^https?:\/\//, '')}/#/messages\n\n`
+      + `${n >= 4 ? 'Sans nouvelle de votre part, nous clôturerons cette demande dans quelques jours.\n\n' : ''}Merci et à bientôt,\n\nL'équipe Import Public`;
     const opt = (vals, cur, fmt) => vals.map((v) => `<option value="${v}"${Number(cur) === v ? ' selected' : ''}>${fmt(v)}</option>`).join('');
     const blocRelances = d.statut === 'devis_envoye' ? `<div class="carte relances-etat">
         <h2>Relances du devis</h2>
