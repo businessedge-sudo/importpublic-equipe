@@ -1224,3 +1224,28 @@ body.avec-wa main { padding-bottom: 72px; }
 .espace-equipe .tuile:hover { transform: translateY(-3px); }
 .espace-equipe .tuile-ico { filter: drop-shadow(0 4px 6px rgba(0,0,0,.18)); }
 @media (min-width: 900px) { .espace-equipe .tuiles { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); } }
+
+/* ===================== Bloc prix : notre prix / prix de Lomé barré / économie ===================== */
+.bloc-prix { display: grid; gap: 6px; margin: 4px 0 8px; }
+.bp-haut { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+.bp-prix { font-size: 1.45rem; font-weight: 800; color: var(--accent-fonce); line-height: 1; letter-spacing: -.01em; }
+.bp-avant { display: grid; line-height: 1.1; }
+.bp-avant small { font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--encre-3); }
+.bp-avant s { position: relative; font-size: .98rem; font-weight: 700; color: #6f6a64; text-decoration: none; }
+.bp-avant s::after { content: ''; position: absolute; left: -2px; right: -2px; top: 50%; height: 2px; background: #e03131; transform: rotate(-8deg); border-radius: 2px; }
+.bp-eco { display: inline-flex; align-items: center; gap: 6px; justify-self: start; padding: 5px 6px 5px 10px; border-radius: 12px;
+  background: linear-gradient(180deg, #2fb36b, #198a4e); color: #fff; font-size: .8rem;
+  box-shadow: 0 6px 14px -6px rgba(25,138,78,.6), inset 0 1px 0 rgba(255,255,255,.3); }
+.bp-eco span { opacity: .92; }
+.bp-eco b { font-weight: 800; font-size: .92rem; white-space: nowrap; }
+.bp-eco { white-space: nowrap; max-width: 100%; }
+.bp-court { display: none; }
+.bp-eco em { font-style: normal; font-weight: 800; background: #fff; color: #198a4e; border-radius: 8px; padding: 2px 6px; font-size: .74rem; }
+.bloc-prix.petit .bp-prix { font-size: 1.2rem; }
+@media (max-width: 600px) {
+  .campagne .bp-prix { font-size: 1.15rem; }
+  .campagne .bp-eco { font-size: .7rem; padding: 4px 8px; gap: 4px; }
+  .campagne .bp-eco b { font-size: .78rem; }
+  .campagne .bp-long, .campagne .bp-eco em { display: none; }
+  .campagne .bp-court { display: inline; }
+}

@@ -168,7 +168,7 @@
       compte(sb.from('demandes').select('id', { count: 'exact', head: true }).eq('statut', 'acceptee')),
       compte(sb.from('campagnes').select('id', { count: 'exact', head: true }).eq('statut', 'ouverte')),
       compte(sb.from('commandes').select('id', { count: 'exact', head: true }).eq('statut', 'a_rembourser')),
-      sb.from('campagnes').select('id,titre,statut,quota,quantite_payee,nb_clients,date_cloture,image_url,prix_unitaire')
+      sb.from('campagnes').select('id,titre,statut,quota,quantite_payee,nb_clients,date_cloture,image_url,prix_unitaire,prix_reference')
         .not('statut', 'in', '(terminee,echec_quota)').order('date_cloture').limit(24),
       compte(sb.from('campagnes').select('id', { count: 'exact', head: true }).in('statut', ['commandee', 'entrepot_chine', 'en_transit', 'arrivee'])),
       compte(sb.from('pistes').select('id', { count: 'exact', head: true }).not('statut', 'in', '(lancee,abandonnee)'))
@@ -220,10 +220,11 @@
         ${c.image_url ? `<img src="${esc(urlImageCampagne(c.image_url))}" alt="" loading="lazy">`
           : `<span class="dm-sans-photo" style="background:linear-gradient(145deg,#fff3ea,#f6e3d3)"><span class="dm-cube">${I.colis}</span><small>Ajoutez des photos</small></span>`}
         <span class="pastille-statut">${badge(c.statut)}</span>
+        ${c.prix_reference > c.prix_unitaire && (1 - c.prix_unitaire / c.prix_reference) >= .05 ? `<span class="cp-remise" style="top:auto;bottom:10px">-${Math.round(100 * (1 - c.prix_unitaire / c.prix_reference))} %</span>` : ''}
         ${c.statut === 'ouverte' ? `<span class="pastille-delai">${esc(joursRestants(c.date_cloture))}</span>` : ''}</a>
       <div class="campagne-corps">
         <a class="campagne-titre" href="#/campagne/${c.id}">${esc(c.titre)}</a>
-        <div class="prix">${fcfa(c.prix_unitaire)}</div>
+        ${window.IA.blocPrix(c)}
         <div class="social">${I.personnes}<span>${c.nb_clients || 0} client${(c.nb_clients || 0) > 1 ? 's' : ''} · ${c.quantite_payee}/${c.quota} unités</span></div>
         <div class="jauge-ligne"><div class="jauge"><div class="jauge-barre" style="width:${p}%"></div></div><b>${p}%</b></div>
         <a class="btn btn-second btn-large btn-reserver" href="#/campagne/${c.id}">Gérer<span class="txt-long">&nbsp;la campagne</span></a>
@@ -322,7 +323,7 @@
           ${remise(c) >= 5 ? `<span class="cp-remise">-${remise(c)} %</span>` : ''}</span>
         <span class="dm-corps">
           <b class="dm-titre">${esc(c.titre)}</b>
-          ${prix(c)}
+          ${window.IA.blocPrix(c, true)}
           ${jaugeC(c)}
           <span class="dm-puces">${puces(c)}</span>
         </span></a>`).join('')}</div>`;
