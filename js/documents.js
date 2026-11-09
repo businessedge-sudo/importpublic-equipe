@@ -5,15 +5,49 @@
     devis:         { titre: 'Devis',                 total: 'Total à payer (livré à Lomé)' },
     recu:          { titre: 'Reçu de paiement',      total: 'Montant payé' },
     annulation:    { titre: 'Avis d\'annulation',    total: 'Montant à rembourser' },
-    remboursement: { titre: 'Avis de remboursement', total: 'Montant remboursé' }
+    remboursement: { titre: 'Avis de remboursement', total: 'Montant remboursé' },
+    bon_retrait:   { titre: 'Bon de retrait',        total: '' }
   };
 
   window.IP_DOCS = {
     TYPES,
+
+    // Bon de retrait : le code en grand + QR code, l'adresse et les horaires du point
+    bonRetrait(doc) {
+      const { esc } = window.IA;
+      const c = doc.contenu || {};
+      const pt = c.point || {};
+      const cl = c.client || {};
+      const l = (Array.isArray(doc.lignes) && doc.lignes[0]) || {};
+      let qr = '';
+      if (window.qrcode && c.code) {
+        try { const q = window.qrcode(0, 'M'); q.addData('IP-RETRAIT:' + (c.colis_reference || '') + ':' + c.code); q.make(); qr = q.createSvgTag({ cellSize: 5, margin: 2 }); } catch { qr = ''; }
+      }
+      const d = new Date(doc.cree_le).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+      return `<article class="doc doc-bon_retrait">
+        <header class="doc-tete">
+          <div class="doc-marque"><span class="doc-logo">IP</span><div><b>Import<span>Public</span></b><small>Achetez ensemble, payez moins.</small></div></div>
+          <div class="doc-titre"><h2>Bon de retrait</h2><p>N° <b>${esc(doc.numero)}</b></p><p>Date : ${esc(d)}</p></div>
+        </header>
+        <div class="bon-code">
+          ${qr ? `<div class="bon-qr">${qr}</div>` : ''}
+          <div><small>Votre code de retrait</small><b>${esc(c.code || '------')}</b><span>Colis ${esc(c.colis_reference || '')}</span></div>
+        </div>
+        <div class="doc-parties">
+          <div><small>Pour</small><b>${esc(cl.nom || 'Client')}</b>${cl.reference ? `<span>Réf. client : ${esc(cl.reference)}</span>` : ''}${cl.telephone ? `<span>${esc(cl.telephone)}</span>` : ''}</div>
+          <div><small>Où retirer</small><b>${esc(pt.representant || pt.nom || 'Point de retrait')}</b>${pt.adresse ? `<span>${esc(pt.adresse)}</span>` : ''}
+            ${pt.horaires ? `<span>Horaires : ${esc(pt.horaires)}</span>` : ''}${pt.telephone ? `<span>Tél. : ${esc(pt.telephone)}</span>` : ''}</div>
+        </div>
+        <p class="doc-objet">Article : <b>${esc(l.libelle || '')}</b>${l.quantite ? ` × ${esc(String(l.quantite))}` : ''}</p>
+        <div class="doc-note">Présentez ce bon (sur votre téléphone ou imprimé) ou donnez votre code au point de retrait. Gardez ce code confidentiel et ne le communiquez à personne : il permet de récupérer votre colis.</div>
+        <footer class="doc-pied">Import Public · Lomé, Togo · importpublic.com · contact@importpublic.com<br>Document émis électroniquement par Import Public.</footer>
+      </article>`;
+    },
     libelle: (t) => (TYPES[t] || { titre: 'Document' }).titre,
 
     // Rendu HTML du document (doc = ligne de la table documents)
     html(doc) {
+      if (doc.type === 'bon_retrait') return this.bonRetrait(doc);
       const { esc, fcfa } = window.IA;
       // Date complète avec l'année (un document se conserve)
       const date = (d, heure) => new Date(d).toLocaleString('fr-FR', heure

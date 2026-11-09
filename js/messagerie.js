@@ -77,8 +77,8 @@
         if (!d) return '';
         const nom = window.IP_DOCS ? window.IP_DOCS.libelle(d.type) : 'Document';
         return `<a class="msg-doc" href="#/document/${d.id}">${I.fichier}<span><b>${esc(nom)} n° ${esc(d.numero)}</b>
-          <small>${d.remplace ? 'Remplacé par un devis plus récent' : 'Voir, enregistrer en PDF' + (d.type === 'devis' ? ', accepter' : '')}</small></span>
-          <em>${window.IA.fcfa(d.total)}</em></a>`;
+          <small>${d.remplace ? 'Remplacé par un devis plus récent' : (d.type === 'bon_retrait' ? 'À présenter au point de retrait' : 'Voir, enregistrer en PDF') + (d.type === 'devis' ? ', accepter' : '')}</small></span>
+          <em>${d.type === 'bon_retrait' ? 'Code inclus' : window.IA.fcfa(d.total)}</em></a>`;
       };
 
       async function urlPiece(path) {

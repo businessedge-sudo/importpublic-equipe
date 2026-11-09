@@ -112,7 +112,7 @@
     const nb = document.querySelectorAll('.nav-bas a:not([hidden])').length;
     document.getElementById('nav').style.gridTemplateColumns = `repeat(${nb}, minmax(64px, 1fr))`;
 
-    const onglet = { '': 'accueil', paiements: 'paiements', campagnes: 'campagnes', campagne: 'campagnes', pistes: 'campagnes', piste: 'campagnes',
+    const onglet = { '': 'accueil', paiements: 'paiements', campagnes: 'campagnes', campagne: 'campagnes', 'bon-commande': 'campagnes', pistes: 'campagnes', piste: 'campagnes',
                      demandes: 'demandes', demande: 'demandes', colis: 'colis', reseau: 'reseau', reglages: 'reglages', utilisateurs: 'reglages',
                      messages: 'messages', alertes: 'alertes' }[m[0] || ''];
     if (estPartenaire() && onglet !== 'colis' && onglet !== 'alertes') { location.hash = '#/colis'; return; }
@@ -122,7 +122,7 @@
     const routes = { '': vueAccueil, paiements: vuePaiements, campagnes: vueCampagnes, campagne: vueCampagne,
                      demandes: vueDemandes, demande: vueDemande, colis: vueColis, reseau: vueReseau, reglages: vueReglages,
                      pistes: ops.vuePistes, piste: ops.vuePiste, utilisateurs: ops.vueUtilisateurs,
-                     messages: vueMessages, alertes: vueAlertes, document: vueDocument };
+                     messages: vueMessages, alertes: vueAlertes, document: vueDocument, 'bon-commande': vueBonCommande };
     vue.innerHTML = '<div class="chargement">Chargement…</div>';
     Promise.resolve((routes[m[0] || ''] || vueAccueil)(m[1], params)).catch((e) => {
       vue.innerHTML = `<div class="carte"><div class="alerte alerte-ko">${esc(msgErreur(e))}</div>
@@ -389,6 +389,10 @@
         </div>
         ${c.statut === 'arrivee' ? `<p class="aide">Un colis avec code de retrait est créé pour chaque commande payée. Les points de retrait l'enregistrent puis le remettent dans l'onglet <a href="#/colis">Colis</a>.</p>` : ''}
         <div id="zone-wa"></div>
+        <div class="boutons" style="margin-top:10px">
+          ${!['brouillon', 'echec_quota'].includes(c.statut) ? `<a class="btn btn-second btn-petit" href="#/bon-commande/${c.id}">${window.ICO.fichier}Bon de commande fournisseur</a>` : ''}
+        </div>
+        ${['quota_atteint', 'commandee', 'entrepot_chine', 'en_transit', 'arrivee'].includes(c.statut) ? blocRetard() : ''}
       </div>
       <div class="carte"><h2>Commandes</h2>
         ${commandes.length ? commandes.map((o) => `
@@ -506,6 +510,7 @@
 
     if (nouvelle) return;
     sections.brancher();
+    brancherRetard(c.id, null);
 
     // Liens WhatsApp vers les clients payés, après un changement d'étape
     const proposerWa = (statut) => {
@@ -690,7 +695,7 @@
         ${!d.relance_wa_a_faire ? '<button class="btn btn-second btn-petit" id="relancer">Relancer maintenant</button>' : ''}
       </div>` : '';
     const blocDocs = (docs || []).length ? `<div class="carte"><h2>Documents envoyés</h2><div class="liste-docs">${docs.map((x) => `
-        <a href="#/document/${x.id}"><span><b>${esc(window.IP_DOCS.libelle(x.type))}</b> <small>n° ${esc(x.numero)} · ${esc(date(x.cree_le))}${x.remplace ? ' · remplacé' : ''}</small></span><b>${fcfa(x.total)}</b></a>`).join('')}</div></div>` : '';
+        <a href="#/document/${x.id}"><span><b>${esc(window.IP_DOCS.libelle(x.type))}</b> <small>n° ${esc(x.numero)} · ${esc(date(x.cree_le))}${x.remplace ? ' · remplacé' : ''}</small></span><b>${x.type === 'bon_retrait' ? 'Code' : fcfa(x.total)}</b></a>`).join('')}</div></div>` : '';
 
     vue.innerHTML = `
       <a class="retour" href="#/demandes">← Sur mesure</a>
@@ -744,6 +749,7 @@
         ${aRembourser.length ? `<div class="alerte alerte-alerte" style="margin-top:10px">Le client avait payé ${fcfa(aRembourser.reduce((t, p) => t + Number(p.montant), 0))} : à rembourser.</div>
           <button class="btn" id="rembourser-dem">Marquer comme remboursé</button>` : ''}
         <div id="zone-wa"></div>
+        ${['payee', 'commandee', 'entrepot_chine', 'en_transit', 'arrivee'].includes(d.statut) ? blocRetard() : ''}
       </div>
       ${blocDocs}
       ${opsDemande.html}
@@ -755,6 +761,7 @@
       etat.canal = await chat.monter(document.getElementById('zone-chat'), d.client_id, etat.profil.id, {
         noms, vide: '<p>Aucun message pour l\'instant.</p>' });
     }
+    brancherRetard(null, d.id);
     const bWa = document.getElementById('relance-wa-faite');
     if (bWa) bWa.addEventListener('click', () => occupe(bWa, async () => {
       const { error: e } = await sb.rpc('relance_wa_faite', { p_demande: d.id, p_texte: texteWa(d.relance_wa_a_faire) });
@@ -912,6 +919,110 @@
     etat.canal = await chat.monter(document.getElementById('zone-chat'), clientId, etat.profil.id, {
       noms, vide: '<p>Aucun message. Écrivez le premier : le client recevra une alerte.</p>' });
     majBadges();
+  }
+
+  // Retard de livraison : message à tous les clients payés de la campagne (ou au client de la demande)
+  function blocRetard() {
+    const demain = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    return `<details class="bloc-retard"><summary class="lien-texte">Annoncer un retard aux clients</summary>
+      <form id="form-retard">
+        <label for="rt-raison">Raison du retard</label>
+        <input id="rt-raison" required maxlength="200" placeholder="Ex. : un retard de chargement du navire au port de Ningbo">
+        <div class="aide">Elle s'insère dans : « Votre colis connaît actuellement un retard en raison de : … »</div>
+        <label for="rt-date">Nouvelle date estimée d'arrivée à Lomé (vérifiée)</label>
+        <input id="rt-date" type="date" required min="${demain}">
+        <button class="btn btn-second" style="margin-top:10px">Envoyer le message aux clients</button>
+      </form></details>`;
+  }
+  function brancherRetard(campagneId, demandeId) {
+    const f = document.getElementById('form-retard');
+    if (!f) return;
+    f.addEventListener('submit', (ev) => {
+      ev.preventDefault();
+      if (!confirm('Envoyer le message de retard à tous les clients concernés ?')) return;
+      occupe(f.querySelector('button'), async () => {
+        const { data: n, error: e } = await sb.rpc('annoncer_retard', { p_campagne: campagneId, p_demande: demandeId,
+          p_raison: document.getElementById('rt-raison').value, p_date: document.getElementById('rt-date').value });
+        if (e) { toast(msgErreur(e), 'ko'); return; }
+        toast(`Message envoyé à ${n} client${n > 1 ? 's' : ''}`);
+        f.closest('details').open = false; f.reset();
+      });
+    });
+  }
+
+  // Bon de commande fournisseur (document interne, imprimable en PDF)
+  async function vueBonCommande(id) {
+    const [{ data: c, error }, { data: cmd }, { data: piste }] = await Promise.all([
+      sb.from('campagnes').select('*').eq('id', id).maybeSingle(),
+      sb.from('commandes').select('quantite,variante,statut').eq('campagne_id', id).in('statut', ['payee', 'livree']),
+      sb.from('pistes').select('fournisseur,liens,moq').eq('campagne_id', id).maybeSingle()
+    ]);
+    if (error) throw error;
+    if (!c) { vue.innerHTML = '<div class="carte vide">Campagne introuvable.</div>'; return; }
+    const b = c.bon_commande || {};
+    const noms = (c.variantes || []).map((v) => v.nom);
+    const groupes = {};
+    (cmd || []).forEach((o) => {
+      const v = o.variante && typeof o.variante === 'object' ? o.variante : {};
+      const cle = noms.map((n) => v[n] || '-').join(' · ') || 'Modèle unique';
+      groupes[cle] = (groupes[cle] || 0) + Number(o.quantite || 0);
+    });
+    const total = Object.values(groupes).reduce((t, q) => t + q, 0);
+    const lien = b.lien || ((piste && piste.liens) || '').match(/https?:\/\/\S+/)?.[0] || '';
+    const numero = 'BC-' + new Date().getFullYear() + '-' + id.slice(0, 6).toUpperCase();
+    const champ = (k, v, ph) => `<input class="bc-champ" data-k="${k}" value="${esc(b[k] ?? v ?? '')}" placeholder="${esc(ph || '')}">`;
+    vue.innerHTML = `
+      <a class="retour" href="#/campagne/${id}">← ${esc(c.titre)}</a>
+      <article class="doc bon-commande">
+        <header class="doc-tete">
+          <div class="doc-marque"><span class="doc-logo">IP</span><div><b>Import<span>Public</span></b><small>Service approvisionnement</small></div></div>
+          <div class="doc-titre"><h2>Bon de commande fournisseur</h2><p>N° <b>${esc(numero)}</b></p><p>Date : ${esc(new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }))}</p></div>
+        </header>
+        <table class="doc-lignes bc-infos"><tbody>
+          <tr><td>Référence de commande</td><td><b>${esc(numero)}</b></td></tr>
+          <tr><td>Campagne</td><td>${esc(c.titre)}</td></tr>
+          <tr><td>Date souhaitée d'expédition</td><td>${champ('date_expedition', '', 'JJ/MM/AAAA')}</td></tr>
+        </tbody></table>
+        <h3>1. Informations sur le produit</h3>
+        <div class="bc-grille">
+          <span>Nom du produit</span>${champ('produit', c.titre)}
+          <span>Lien du produit</span>${champ('lien', lien, 'https://…')}
+          <span>Fournisseur</span>${champ('fournisseur', piste && piste.fournisseur, 'Nom du fournisseur')}
+          <span>Référence produit</span>${champ('reference', '', 'Référence fournisseur')}
+        </div>
+        <h3>2. Détail des quantités</h3>
+        <table class="doc-lignes"><thead><tr><th>${esc(noms.join(' · ') || 'Variante')}</th><th>Quantité</th></tr></thead>
+          <tbody>${Object.keys(groupes).length ? Object.entries(groupes).map(([k, q]) => `<tr><td>${esc(k)}</td><td>${q}</td></tr>`).join('') : '<tr><td colspan="2">Aucune commande payée pour l\'instant.</td></tr>'}</tbody></table>
+        <div class="doc-total"><span>Quantité totale à commander</span><b>${total} pièce${total > 1 ? 's' : ''}</b></div>
+        <h3>3. Informations logistiques</h3>
+        <div class="bc-grille">
+          <span>Mode de transport</span>${champ('transport', lib(c.mode_transport))}
+          <span>Adresse de livraison (entrepôt en Chine)</span>${champ('adresse', '', 'Adresse de l\'entrepôt')}
+          <span>Contact à l'entrepôt</span>${champ('contact', '', 'Nom et téléphone')}
+          <span>Date souhaitée de livraison à l'entrepôt</span>${champ('date_entrepot', '', 'JJ/MM/AAAA')}
+        </div>
+        <h3>4. Instructions particulières</h3>
+        <textarea class="bc-champ bc-instructions" data-k="instructions" placeholder="Emballage, étiquetage, contrôle qualité, variantes à vérifier…">${esc(b.instructions || '')}</textarea>
+        <h3>5. Vérifications avant expédition</h3>
+        <ul class="bc-verifs"><li>Les quantités correspondent au bon de commande.</li><li>Les couleurs et les tailles sont conformes.</li>
+          <li>Les produits ne présentent pas de défaut apparent.</li><li>Les articles sont correctement emballés.</li>
+          <li>Les éventuelles différences ou ruptures de stock nous sont signalées avant expédition.</li></ul>
+        <div class="doc-note">Merci de confirmer la disponibilité des produits et la bonne prise en compte de cette commande avant de procéder à l'expédition.</div>
+        <footer class="doc-pied">IMPORT PUBLIC · Service approvisionnement · Lomé, Togo · contact@importpublic.com</footer>
+      </article>
+      <div class="doc-actions">
+        <button class="btn" id="bc-enregistrer">Enregistrer les informations</button>
+        <button class="btn btn-second" id="bc-imprimer">${window.ICO.telecharger}Enregistrer en PDF</button>
+      </div>`;
+    const lire = () => Object.fromEntries([...vue.querySelectorAll('.bc-champ')].map((x) => [x.dataset.k, x.value.trim()]));
+    document.getElementById('bc-enregistrer').addEventListener('click', (ev) => occupe(ev.currentTarget, async () => {
+      const { error: e } = await sb.from('campagnes').update({ bon_commande: lire() }).eq('id', id);
+      if (e) toast(msgErreur(e), 'ko'); else toast('Enregistré');
+    }));
+    document.getElementById('bc-imprimer').addEventListener('click', async () => {
+      await sb.from('campagnes').update({ bon_commande: lire() }).eq('id', id);
+      window.print();
+    });
   }
 
   // Document client (même rendu que chez le client)

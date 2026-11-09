@@ -1249,3 +1249,28 @@ body.avec-wa main { padding-bottom: 72px; }
   .campagne .bp-long, .campagne .bp-eco em { display: none; }
   .campagne .bp-court { display: inline; }
 }
+
+/* Bon de retrait */
+.bon-code { display: flex; align-items: center; justify-content: center; gap: 22px; flex-wrap: wrap; margin: 18px 0; padding: 18px; border: 2px dashed var(--accent); border-radius: 16px; background: var(--accent-clair); }
+.bon-code > div:last-child { display: grid; text-align: center; gap: 4px; }
+.bon-code small { text-transform: uppercase; letter-spacing: .08em; font-weight: 700; font-size: .72rem; color: var(--encre-2); }
+.bon-code b { font-size: 2.6rem; letter-spacing: .18em; color: var(--accent-fonce); font-variant-numeric: tabular-nums; }
+.bon-code span { font-size: .85rem; color: var(--encre-2); }
+.bon-qr svg { width: 150px; height: 150px; display: block; background: #fff; border-radius: 10px; }
+.avis-carte { max-width: 560px; margin: 0 auto; }
+.etoiles { display: flex; gap: 6px; margin: 10px 0 2px; }
+.etoiles button { font-size: 2.4rem; line-height: 1; background: none; border: 0; cursor: pointer; color: #e3dbcf; padding: 2px; transition: transform .1s; }
+.etoiles button.on { color: #f5a623; text-shadow: 0 3px 8px rgba(245,166,35,.45); }
+.etoiles button:active { transform: scale(.9); }
+/* Bon de commande fournisseur */
+.bon-commande h3 { margin: 18px 0 8px; font-size: 1rem; }
+.bc-grille { display: grid; grid-template-columns: minmax(160px, 1fr) 2fr; gap: 6px 12px; align-items: center; font-size: .9rem; }
+.bc-grille > span { color: var(--encre-2); }
+.bc-champ { width: 100%; margin: 0; padding: 7px 10px; border: 1px dashed var(--ligne); border-radius: 8px; font: inherit; background: #fffdf9; }
+.bc-instructions { min-height: 70px; }
+.bc-infos td:first-child { color: var(--encre-2); width: 40%; }
+.bc-verifs { margin: 0; padding-left: 20px; font-size: .9rem; }
+.bc-verifs li::marker { content: '☐  '; }
+@media print { .bc-champ { border: 0; background: none; padding: 2px 0; } .bc-champ::placeholder { color: transparent; } }
+@media (max-width: 600px) { .bc-grille { grid-template-columns: 1fr; } }
+.bloc-retard { margin-top: 12px; border-top: 1px dashed var(--ligne); padding-top: 8px; }
