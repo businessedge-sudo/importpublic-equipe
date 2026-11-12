@@ -489,14 +489,16 @@
     // Enregistrement
     document.getElementById('form-c').addEventListener('submit', (ev) => {
       ev.preventDefault();
-      occupe(ev.target.querySelector('button'), async () => {
+      occupe(ev.target.querySelector('button.btn-large'), async () => {
         const images = [];
         for (const [i, p] of photos.entries()) {
           if (p.chemin) { images.push(p.chemin); continue; }
           const blob = await compresserImage(p.fichier, 1400, 0.82);
-          const chemin = `${Date.now()}-${i}-${Math.random().toString(36).slice(2, 7)}.jpg`;
-          const up = await sb.storage.from('campagnes').upload(chemin, blob, { contentType: 'image/jpeg' });
-          if (up.error) { toast(msgErreur(up.error), 'ko'); return; }
+          const type = blob.type || 'image/jpeg';
+          const ext = { 'image/png': 'png', 'image/webp': 'webp' }[type] || 'jpg';
+          const chemin = `${Date.now()}-${i}-${Math.random().toString(36).slice(2, 7)}.${ext}`;
+          const up = await sb.storage.from('campagnes').upload(chemin, blob, { contentType: type });
+          if (up.error) { toast('Photo ' + (i + 1) + ' non envoyée : ' + msgErreur(up.error), 'ko'); return; }
           p.chemin = chemin; images.push(chemin);
         }
         const image_url = images[0] || null;
@@ -518,7 +520,7 @@
           r = await sb.from('campagnes').update(ligne).eq('id', c.id).select('id').single();
         }
         if (r.error) { toast(msgErreur(r.error), 'ko'); return; }
-        toast('Enregistré');
+        toast(images.length ? `Enregistré avec ${images.length} photo${images.length > 1 ? 's' : ''}` : 'Enregistré');
         if (nouvelle) location.hash = '#/campagne/' + r.data.id; else router();
       });
     });
