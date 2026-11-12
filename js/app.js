@@ -393,6 +393,18 @@
           ${!['brouillon', 'echec_quota'].includes(c.statut) ? `<a class="btn btn-second btn-petit" href="#/bon-commande/${c.id}">${window.ICO.fichier}Bon de commande fournisseur</a>` : ''}
         </div>
         ${['quota_atteint', 'commandee', 'entrepot_chine', 'en_transit', 'arrivee'].includes(c.statut) ? blocRetard() : ''}
+        ${['ouverte', 'brouillon'].includes(c.statut) ? `<div class="bloc-delai-eq">
+            <b>Clôture : ${esc(date(c.date_cloture, true))}</b> <span class="discret">(${esc(joursRestants(c.date_cloture))})</span>
+            <div class="boutons"><button type="button" class="btn btn-second btn-petit" data-prolonger="7">+7 jours</button>
+              <button type="button" class="btn btn-second btn-petit" data-prolonger="14">+14 jours</button>
+              <button type="button" class="btn btn-second btn-petit" data-prolonger="autre">Autre date…</button></div>
+            <div class="aide">Le compte à rebours affiché aux clients se met à jour tout de suite.</div></div>` : ''}
+        ${['quota_atteint', 'commandee', 'entrepot_chine', 'en_transit', 'arrivee', 'terminee', 'echec_quota'].includes(c.statut) ? `<details class="bloc-retard">
+            <summary class="lien-texte">Relancer cette campagne</summary>
+            <form id="form-relancer"><p class="discret">Une nouvelle campagne identique (photos, prix, description) est créée, avec un compteur remis à zéro. Celle-ci continue normalement.</p>
+              <label for="rl-cloture">Nouvelle date de clôture</label><input id="rl-cloture" type="datetime-local" required>
+              <label class="case-acceptation"><input type="checkbox" id="rl-publier" checked> Publier tout de suite (alerte « Nouvelle campagne » à tous les clients)</label>
+              <button class="btn" style="margin-top:8px">Relancer la campagne</button></form></details>` : ''}
       </div>
       <div class="carte"><h2>Commandes</h2>
         ${commandes.length ? commandes.map((o) => `
@@ -511,6 +523,39 @@
     if (nouvelle) return;
     sections.brancher();
     brancherRetard(c.id, null);
+    // Prolonger une campagne ouverte
+    vue.querySelectorAll('[data-prolonger]').forEach((b) => b.addEventListener('click', () => {
+      let fin;
+      if (b.dataset.prolonger === 'autre') {
+        const v = prompt('Nouvelle date de clôture (JJ/MM/AAAA) :', new Date(c.date_cloture).toLocaleDateString('fr-FR'));
+        if (!v) return;
+        const m = v.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        if (!m) { toast('Format attendu : JJ/MM/AAAA', 'ko'); return; }
+        fin = new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]), 20, 0);
+      } else {
+        fin = new Date(Math.max(new Date(c.date_cloture).getTime(), Date.now()) + Number(b.dataset.prolonger) * 86400000);
+      }
+      occupe(b, async () => {
+        const { error: e } = await sb.rpc('prolonger_campagne', { p_campagne: c.id, p_cloture: fin.toISOString() });
+        if (e) { toast(msgErreur(e), 'ko'); return; }
+        toast('Clôture repoussée au ' + fin.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })); router();
+      });
+    }));
+    // Relancer une campagne clôturée
+    const fr = document.getElementById('form-relancer');
+    if (fr) {
+      const dflt = new Date(Date.now() + 14 * 86400000); dflt.setHours(20, 0, 0, 0);
+      document.getElementById('rl-cloture').value = local(dflt.toISOString());
+      fr.addEventListener('submit', (ev) => {
+        ev.preventDefault();
+        occupe(fr.querySelector('button'), async () => {
+          const { data: nid, error: e } = await sb.rpc('relancer_campagne', { p_campagne: c.id,
+            p_cloture: new Date(document.getElementById('rl-cloture').value).toISOString(), p_publier: document.getElementById('rl-publier').checked });
+          if (e) { toast(msgErreur(e), 'ko'); return; }
+          toast('Campagne relancée'); location.hash = '#/campagne/' + nid;
+        });
+      });
+    }
 
     // Liens WhatsApp vers les clients payés, après un changement d'étape
     const proposerWa = (statut) => {

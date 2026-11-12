@@ -1274,3 +1274,23 @@ body.avec-wa main { padding-bottom: 72px; }
 @media print { .bc-champ { border: 0; background: none; padding: 2px 0; } .bc-champ::placeholder { color: transparent; } }
 @media (max-width: 600px) { .bc-grille { grid-template-columns: 1fr; } }
 .bloc-retard { margin-top: 12px; border-top: 1px dashed var(--ligne); padding-top: 8px; }
+
+/* ===================== Compte à rebours des campagnes (côté client) ===================== */
+.delai { display: grid; gap: 6px; margin: 4px 0 10px; }
+.delai-tete { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; font-size: .9rem; color: var(--encre-2); }
+.delai-tete b { color: var(--encre); font-variant-numeric: tabular-nums; }
+.delai-tete small { color: var(--encre-3); text-transform: capitalize; }
+.delai-barre { height: 10px; border-radius: 99px; background: #efe8de; box-shadow: inset 0 1px 3px rgba(0,0,0,.12); overflow: hidden; }
+.delai-barre span { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, #ffb37a, #ff7a2f 60%, #d9480f);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.45); transition: width .6s ease; }
+.delai.urgent .delai-barre span { background: linear-gradient(90deg, #ff7a2f, #e03131); animation: delai-pulse 1.6s ease-in-out infinite; }
+.delai.urgent .delai-tete b { color: #c92a2a; }
+@keyframes delai-pulse { 50% { filter: brightness(1.15); } }
+.delai-msg { margin: 0; font-size: .8rem; font-weight: 600; color: var(--accent-fonce); }
+.delai.petit { gap: 4px; margin: 2px 0 8px; }
+.delai.petit .delai-tete { font-size: .78rem; }
+.delai.petit .delai-barre { height: 7px; }
+.delai.petit .delai-msg { font-size: .72rem; font-weight: 500; color: var(--encre-3); }
+@media (max-width: 600px) { .campagne .delai.petit .delai-msg { display: none; } }
+.bloc-delai-eq { margin-top: 12px; padding: 10px 12px; border-radius: 12px; background: #faf7f2; border: 1px dashed var(--ligne); }
+.bloc-delai-eq .boutons { margin-top: 8px; }
