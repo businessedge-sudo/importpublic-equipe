@@ -59,7 +59,7 @@
   // Pastilles de comptage dans le menu (paiements à vérifier, demandes à chiffrer)
   async function majBadges() {
     const [p, d, c] = await Promise.all([
-      estFinance() ? sb.from('paiements').select('id', { count: 'exact', head: true }).eq('statut', 'initie') : Promise.resolve({ count: 0 }),
+      estFinance() ? sb.from('paiements').select('id', { count: 'exact', head: true }).eq('statut', 'initie').or('agregateur.is.null,agregateur.neq.paygate') : Promise.resolve({ count: 0 }),
       sb.from('demandes').select('id', { count: 'exact', head: true }).eq('statut', 'nouvelle'),
       estSupport() ? sb.from('conversations').select('dernier_msg_le,lu_equipe_le').eq('dernier_de_equipe', false) : Promise.resolve({ data: [] })
     ]);
@@ -163,7 +163,7 @@
   async function vueAccueil() {
     const compte = (q) => q.then((r) => r.count || 0);
     const [aVerifier, nouvelles, acceptees, ouvertes, aRembourser, campagnes, enCours, etudes] = await Promise.all([
-      compte(sb.from('paiements').select('id', { count: 'exact', head: true }).eq('statut', 'initie')),
+      compte(sb.from('paiements').select('id', { count: 'exact', head: true }).eq('statut', 'initie').or('agregateur.is.null,agregateur.neq.paygate')),
       compte(sb.from('demandes').select('id', { count: 'exact', head: true }).eq('statut', 'nouvelle')),
       compte(sb.from('demandes').select('id', { count: 'exact', head: true }).eq('statut', 'acceptee')),
       compte(sb.from('campagnes').select('id', { count: 'exact', head: true }).eq('statut', 'ouverte')),
@@ -254,6 +254,9 @@
       .select('*, commandes(id,quantite,campagnes(titre),profils(nom_complet,telephone)), demandes(id,description,profils(nom_complet,telephone))')
       .eq('statut', statut).order('created_at', { ascending: statut !== 'initie' }).limit(100);
     if (error) throw error;
+    // Les paiements en ligne (PayGate) se confirment seuls : on n'affiche pas les tentatives en attente ni les tentatives expirées
+    const filtres = statut === 'confirme' ? data : data.filter((p) => p.agregateur !== 'paygate');
+    data.length = 0; data.push(...filtres);
 
     vue.innerHTML = `
       <h1>Paiements</h1>
@@ -267,7 +270,7 @@
         const lienObjet = p.commandes ? '' : `#/demande/${p.demandes.id}`;
         return `<div class="bloc-paiement">
           <div style="display:flex;justify-content:space-between;gap:8px"><b>${fcfa(p.montant)}</b>${badge(p.statut)}</div>
-          <div class="ref">${esc(p.reference_externe)}</div>
+          <div class="ref">${esc(p.reference_externe || '')}${p.agregateur === 'paygate' ? ' <span class="badge badge-ok">Payé en ligne, vérifié</span>' : ''}</div>
           <small>${esc(lib(p.operateur))} · payé par ${esc(p.numero_payeur || '-')} · ${date(p.created_at, true)}</small>
           <p style="margin:8px 0 0">${lienObjet ? `<a href="${lienObjet}">${objet}</a>` : objet}<br>
             <small>${esc(client.nom_complet || '')} · ${client.telephone ? `<a href="${waLien(client.telephone)}" target="_blank" rel="noopener">${esc(client.telephone)}</a>` : ''}</small></p>
@@ -1103,6 +1106,8 @@
         <label for="tm">Numéro marchand T-Money</label><input id="tm" inputmode="tel" value="${esc(g.numero_marchand_tmoney || '')}">
         <label for="fl">Numéro marchand Flooz</label><input id="fl" inputmode="tel" value="${esc(g.numero_marchand_flooz || '')}">
         <label for="wa">WhatsApp de contact</label><input id="wa" type="tel" inputmode="tel" value="${esc(g.whatsapp || '')}">
+        ${estAdmin() ? `<label class="case-acceptation" style="margin-top:14px"><input type="checkbox" id="pg-actif" ${g.paiement_en_ligne ? 'checked' : ''}>
+          <span><b>Paiement en ligne PayGate activé</b><br><small class="discret">Le client paie depuis sa commande (demande envoyée sur son téléphone). Le paiement est vérifié auprès de PayGate et le reçu est généré tout seul. Cochez seulement quand le compte PayGate est actif et la clé API enregistrée.</small></span></label>` : ''}
         <button class="btn btn-large" style="margin-top:14px">Enregistrer</button>
       </form>
       ${estAdmin() ? `<div class="carte">
@@ -1137,7 +1142,8 @@
         const v = (x) => document.getElementById(x).value.trim();
         const { error } = await sb.from('groupeurs').update({
           nom_marchand: v('nm') || null, numero_marchand_tmoney: v('tm') || null,
-          numero_marchand_flooz: v('fl') || null, whatsapp: normTel(v('wa')) || null
+          numero_marchand_flooz: v('fl') || null, whatsapp: normTel(v('wa')) || null,
+          ...(document.getElementById('pg-actif') ? { paiement_en_ligne: document.getElementById('pg-actif').checked } : {})
         }).eq('id', g.id);
         if (error) { toast(msgErreur(error), 'ko'); return; }
         await chargerProfil(); toast('Enregistré');

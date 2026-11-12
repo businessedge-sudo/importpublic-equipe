@@ -1294,3 +1294,35 @@ body.avec-wa main { padding-bottom: 72px; }
 @media (max-width: 600px) { .campagne .delai.petit .delai-msg { display: none; } }
 .bloc-delai-eq { margin-top: 12px; padding: 10px 12px; border-radius: 12px; background: #faf7f2; border: 1px dashed var(--ligne); }
 .bloc-delai-eq .boutons { margin-top: 8px; }
+
+/* ---------- Paiement en ligne (PayGate) ---------- */
+.pg-reseaux { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0 4px; }
+.pg-reseau { position: relative; cursor: pointer; margin: 0; }
+.pg-reseau input { position: absolute; opacity: 0; inset: 0; }
+.pg-reseau span { display: flex; align-items: center; justify-content: center; min-height: 52px; border: 2px solid var(--ligne);
+  border-radius: 12px; font-weight: 800; background: var(--papier); transition: border-color .15s, background .15s; }
+.pg-reseau input[value=TMONEY]:checked + span { border-color: #e2001a; background: #fff0f1; color: #b00014; }
+.pg-reseau input[value=FLOOZ]:checked + span { border-color: #0067b1; background: #eaf4fc; color: #00508a; }
+.pg-reseau input:focus-visible + span { outline: 3px solid var(--accent); outline-offset: 2px; }
+.pg-numero { display: flex; align-items: stretch; border: 1px solid var(--ligne); border-radius: 10px; overflow: hidden; background: var(--papier); }
+.pg-numero span { display: flex; align-items: center; padding: 0 12px; background: var(--fond); color: var(--encre-2); font-weight: 700; border-right: 1px solid var(--ligne); }
+.pg-numero input { border: 0 !important; border-radius: 0 !important; flex: 1; min-width: 0; font-size: 1.1rem; letter-spacing: .04em; margin: 0 !important; }
+.pg-attente { text-align: center; padding: 8px 4px; }
+.pg-attente[hidden], #form-pg[hidden] { display: none; }
+.pg-tel { width: 64px; height: 64px; margin: 4px auto 10px; border-radius: 50%; background: var(--accent-clair); color: var(--accent);
+  display: flex; align-items: center; justify-content: center; animation: pg-vibre 1.6s ease-in-out infinite; }
+.pg-tel svg { width: 30px; height: 30px; }
+.pg-attente h3 { margin: 0 0 6px; }
+.pg-attente p { color: var(--encre-2); }
+.pg-etat { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; color: var(--alerte) !important; background: var(--alerte-clair);
+  padding: 8px 12px; border-radius: 999px; }
+.pg-etat.ok { color: var(--ok) !important; background: var(--ok-clair); }
+.pg-etat svg { width: 18px; height: 18px; }
+.pg-point { width: 10px; height: 10px; border-radius: 50%; background: currentColor; animation: pg-pulse 1s ease-in-out infinite; flex: none; }
+.pg-manuel { margin-top: 18px; border-top: 1px dashed var(--ligne); padding-top: 12px; }
+.pg-manuel summary { cursor: pointer; color: var(--encre-2); font-weight: 600; }
+.pg-manuel[open] summary { margin-bottom: 10px; }
+@keyframes pg-pulse { 50% { opacity: .3; } }
+@keyframes pg-vibre { 0%, 70%, 100% { transform: rotate(0); } 75% { transform: rotate(-8deg); } 85% { transform: rotate(8deg); } 95% { transform: rotate(-4deg); } }
+@media (prefers-reduced-motion: reduce) { .pg-tel, .pg-point { animation: none; } }
+.pg-attente .boutons { justify-content: center; align-items: center; }
