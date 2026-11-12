@@ -26,7 +26,7 @@
       const d = new Date(doc.cree_le).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
       return `<article class="doc doc-bon_retrait">
         <header class="doc-tete">
-          <div class="doc-marque"><span class="doc-logo">IP</span><div><b>Import<span>Public</span></b><small>Achetez ensemble, payez moins.</small></div></div>
+          <div class="doc-marque"><span class="doc-logo">IP</span><div><b>Import<span>Public</span></b><small>Achetez en Chine, recevez chez vous.</small></div></div>
           <div class="doc-titre"><h2>Bon de retrait</h2><p>N° <b>${esc(doc.numero)}</b></p><p>Date : ${esc(d)}</p></div>
         </header>
         <div class="bon-code">
@@ -93,7 +93,7 @@
       return `<article class="doc doc-${esc(doc.type)}">
         ${tampon}
         <header class="doc-tete">
-          <div class="doc-marque"><span class="doc-logo">IP</span><div><b>Import<span>Public</span></b><small>Achetez ensemble, payez moins.</small></div></div>
+          <div class="doc-marque"><span class="doc-logo">IP</span><div><b>Import<span>Public</span></b><small>Achetez en Chine, recevez chez vous.</small></div></div>
           <div class="doc-titre"><h2>${esc(T.titre)}</h2><p>N° <b>${esc(doc.numero)}</b></p><p>Date : ${esc(date(doc.cree_le))}</p></div>
         </header>
         <div class="doc-parties">
