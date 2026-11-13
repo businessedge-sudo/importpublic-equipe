@@ -394,6 +394,7 @@
         <div id="zone-wa"></div>
         <div class="boutons" style="margin-top:10px">
           ${!['brouillon', 'echec_quota'].includes(c.statut) ? `<a class="btn btn-second btn-petit" href="#/bon-commande/${c.id}">${window.ICO.fichier}Bon de commande fournisseur</a>` : ''}
+          ${c.id && estAdmin() ? `<button type="button" class="btn btn-lien btn-petit btn-supprimer" id="supprimer-campagne">🗑 Supprimer la campagne</button>` : ''}
         </div>
         ${['quota_atteint', 'commandee', 'entrepot_chine', 'en_transit', 'arrivee'].includes(c.statut) ? blocRetard() : ''}
         ${c.id && c.statut !== 'brouillon' ? blocDouane(c.frais_douane_unitaire, true) : ''}
@@ -544,6 +545,19 @@
     sections.brancher();
     brancherRetard(c.id, null);
     brancherDouane(c.id, null);
+    const bSupC = document.getElementById('supprimer-campagne');
+    if (bSupC) bSupC.addEventListener('click', () => {
+      const saisie = prompt(`Supprimer définitivement « ${c.titre} » ?\n\nLa campagne, ses commandes non payées et ses photos seront effacées. C'est irréversible. Impossible si un paiement a été reçu.\n\nTapez SUPPRIMER pour confirmer :`);
+      if (saisie === null) return;
+      if (saisie.trim().toUpperCase() !== 'SUPPRIMER') { toast('Suppression annulée : il fallait taper SUPPRIMER', 'ko'); return; }
+      occupe(bSupC, async () => {
+        const { data, error: e } = await sb.rpc('supprimer_campagne', { p_campagne: c.id });
+        if (e) { toast(msgErreur(e), 'ko'); return; }
+        if (data && data.images && data.images.length) await sb.storage.from('campagnes').remove(data.images);
+        toast('Campagne supprimée');
+        location.hash = '#/campagnes';
+      });
+    });
     // Prolonger une campagne ouverte
     vue.querySelectorAll('[data-prolonger]').forEach((b) => b.addEventListener('click', () => {
       let fin;
@@ -870,6 +884,7 @@
         <div class="boutons">
           ${suivant ? `<button class="btn" id="avancer">${esc(ACTION[suivant])}</button>` : ''}
           ${!['livree', 'annulee', 'refusee'].includes(d.statut) ? `<button class="btn btn-ko" id="annuler">Annuler la demande</button>` : ''}
+          ${estAdmin() ? `<button type="button" class="btn btn-lien btn-supprimer" id="supprimer-demande">🗑 Supprimer</button>` : ''}
         </div>
         ${aRembourser.length ? `<div class="alerte alerte-alerte" style="margin-top:10px">Le client avait payé ${fcfa(aRembourser.reduce((t, p) => t + Number(p.montant), 0))} : à rembourser.</div>
           <button class="btn" id="rembourser-dem">Marquer comme remboursé</button>` : ''}
@@ -889,6 +904,20 @@
     }
     brancherRetard(null, d.id);
     brancherDouane(null, d.id);
+    const bSupD = document.getElementById('supprimer-demande');
+    if (bSupD) bSupD.addEventListener('click', () => {
+      const saisie = prompt(`Supprimer définitivement cette demande ?\n\nElle disparaît aussi pour le client, avec ses devis. C'est irréversible. Impossible si un paiement a été reçu : annulez-la plutôt.\n\nTapez SUPPRIMER pour confirmer :`);
+      if (saisie === null) return;
+      if (saisie.trim().toUpperCase() !== 'SUPPRIMER') { toast('Suppression annulée : il fallait taper SUPPRIMER', 'ko'); return; }
+      occupe(bSupD, async () => {
+        const { data, error: e } = await sb.rpc('supprimer_demande', { p_demande: d.id });
+        if (e) { toast(msgErreur(e), 'ko'); return; }
+        if (data && data.photo) await sb.storage.from('demandes').remove([data.photo]);
+        if (data && data.image_equipe) await sb.storage.from('sources').remove([data.image_equipe]);
+        toast('Demande supprimée');
+        location.hash = '#/demandes';
+      });
+    });
     const iSrc = document.getElementById('src-img');
     if (iSrc) {
       document.getElementById('src-img-btn').addEventListener('click', () => iSrc.click());

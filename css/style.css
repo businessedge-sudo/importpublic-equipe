@@ -1353,3 +1353,4 @@ body.avec-wa main { padding-bottom: 72px; }
 .bp-ht { font-size: .78rem; color: var(--encre-2); margin-top: 4px; }
 .bloc-prix.petit .bp-ht { font-size: .72rem; }
 .encaisser { margin-top: 4px; font-size: .85rem; color: #7a5b00; background: #fff6d6; border-radius: 8px; padding: 4px 8px; display: inline-block; }
+.btn-supprimer { color: #b42318 !important; }
