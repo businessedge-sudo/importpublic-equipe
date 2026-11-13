@@ -1348,3 +1348,8 @@ body.avec-wa main { padding-bottom: 72px; }
 .src-image img { width: 120px; height: 120px; object-fit: cover; border-radius: 12px; border: 1px solid var(--ligne); display: block; background: #fff; }
 .src-vide { width: 120px; height: 120px; border-radius: 12px; border: 1px dashed #c9a227; display: flex; align-items: center; justify-content: center; color: #7a5b00; font-size: .85rem; background: #fff; }
 .src-image-actions { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+
+/* Prix hors taxes, montant à encaisser */
+.bp-ht { font-size: .78rem; color: var(--encre-2); margin-top: 4px; }
+.bloc-prix.petit .bp-ht { font-size: .72rem; }
+.encaisser { margin-top: 4px; font-size: .85rem; color: #7a5b00; background: #fff6d6; border-radius: 8px; padding: 4px 8px; display: inline-block; }

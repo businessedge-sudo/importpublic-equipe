@@ -2,7 +2,7 @@
 // Un seul modèle, type facture, imprimable ou enregistrable en PDF depuis le navigateur.
 (function () {
   const TYPES = {
-    devis:         { titre: 'Devis',                 total: 'Total à payer (livré à Lomé)' },
+    devis:         { titre: 'Devis',                 total: 'Total à payer (hors taxes)' },
     recu:          { titre: 'Reçu de paiement',      total: 'Montant payé' },
     annulation:    { titre: 'Avis d\'annulation',    total: 'Montant à rembourser' },
     remboursement: { titre: 'Avis de remboursement', total: 'Montant remboursé' },
@@ -39,6 +39,7 @@
             ${pt.horaires ? `<span>Horaires : ${esc(pt.horaires)}</span>` : ''}${pt.telephone ? `<span>Tél. : ${esc(pt.telephone)}</span>` : ''}</div>
         </div>
         <p class="doc-objet">Article : <b>${esc(l.libelle || '')}</b>${l.quantite ? ` × ${esc(String(l.quantite))}` : ''}</p>
+        <p class="doc-objet">Frais de douane à régler au retrait : <b>${c.frais_douane == null ? 'communiqués par notre équipe' : Number(c.frais_douane) > 0 ? window.IA.fcfa(c.frais_douane) : 'aucun'}</b></p>
         <div class="doc-note">Présentez ce bon (sur votre téléphone ou imprimé) ou donnez votre code au point de retrait. Gardez ce code confidentiel et ne le communiquez à personne : il permet de récupérer votre colis.</div>
         <footer class="doc-pied">Import Public · Lomé, Togo · importpublic.com · contact@importpublic.com<br>Document émis électroniquement par Import Public.</footer>
       </article>`;
@@ -80,7 +81,7 @@
       if (doc.type === 'devis') {
         const moyens = [em.tmoney && `T-Money : <b>${esc(em.tmoney)}</b>`, em.flooz && `Flooz : <b>${esc(em.flooz)}</b>`].filter(Boolean).join(' · ');
         pied = `<div class="doc-note"><b>Comment payer ?</b> Acceptez le devis dans votre compte Import Public, puis payez par Mobile Money${moyens ? ' (' + moyens + (em.marchand ? ', au nom de ' + esc(em.marchand) : '') + ')' : ''}.
-          Nous passons commande dès que votre paiement est validé. Le prix comprend l'achat, le transport jusqu'à Lomé et le dédouanement.</div>`;
+          Nous passons commande dès que votre paiement est validé. Le prix comprend l'achat et le transport jusqu'à Lomé. Les frais de douane et de livraison vous seront communiqués une fois votre colis arrivé à Lomé.</div>`;
       } else if (doc.type === 'recu') {
         pied = `<div class="doc-note">Merci pour votre confiance. Conservez ce reçu : il prouve votre paiement. Vous serez prévenu à chaque étape, jusqu'au retrait de votre colis.</div>`;
       } else if (doc.type === 'annulation') {

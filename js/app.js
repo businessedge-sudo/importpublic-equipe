@@ -396,6 +396,7 @@
           ${!['brouillon', 'echec_quota'].includes(c.statut) ? `<a class="btn btn-second btn-petit" href="#/bon-commande/${c.id}">${window.ICO.fichier}Bon de commande fournisseur</a>` : ''}
         </div>
         ${['quota_atteint', 'commandee', 'entrepot_chine', 'en_transit', 'arrivee'].includes(c.statut) ? blocRetard() : ''}
+        ${c.id && c.statut !== 'brouillon' ? blocDouane(c.frais_douane_unitaire, true) : ''}
         ${['ouverte', 'brouillon'].includes(c.statut) ? `<div class="bloc-delai-eq">
             <b>Clôture : ${esc(date(c.date_cloture, true))}</b> <span class="discret">(${esc(joursRestants(c.date_cloture))})</span>
             <div class="boutons"><button type="button" class="btn btn-second btn-petit" data-prolonger="7">+7 jours</button>
@@ -435,7 +436,7 @@
         <div class="aide">Montrez le produit sous tous ses angles : face, côté, plié, détails, dimensions, emballage. Touchez une photo pour en faire la couverture.</div>
         <div class="rangee">
           <div><label for="prix">Prix unitaire (F)</label><input id="prix" type="number" inputmode="numeric" min="1" required value="${esc(c.prix_unitaire)}"></div>
-          <div><label for="tp">Prix</label><select id="tp"><option value="TTC" ${c.type_prix === 'TTC' ? 'selected' : ''}>TTC (tout compris)</option>
+          <div><label for="tp">Prix</label><select id="tp"><option value="TTC" ${c.type_prix === 'TTC' ? 'selected' : ''}>Transport inclus (hors taxes)</option>
             <option value="HT" ${c.type_prix === 'HT' ? 'selected' : ''}>HT (transport à l'arrivée)</option></select></div>
         </div>
         <div class="rangee">
@@ -542,6 +543,7 @@
     if (nouvelle) return;
     sections.brancher();
     brancherRetard(c.id, null);
+    brancherDouane(c.id, null);
     // Prolonger une campagne ouverte
     vue.querySelectorAll('[data-prolonger]').forEach((b) => b.addEventListener('click', () => {
       let fin;
@@ -801,7 +803,7 @@
     const devis = (docs || []).find((x) => x.type === 'devis' && !x.remplace);
     const aRembourser = d.statut === 'annulee' ? (paies || []).filter((p) => p.statut === 'confirme') : [];
     const prenom = (cl.nom_complet || '').split(' ')[0] || '';
-    const texteWa = (n) => `Bonjour ${prenom},\n\nNous revenons vers vous au sujet de votre devis${devis ? ' n° ' + devis.numero : ''} pour « ${(d.description || '').slice(0, 60)} », d'un montant de ${fcfa(d.montant_devis)}, livraison à Lomé comprise.\n\n`
+    const texteWa = (n) => `Bonjour ${prenom},\n\nNous revenons vers vous au sujet de votre devis${devis ? ' n° ' + devis.numero : ''} pour « ${(d.description || '').slice(0, 60)} », d'un montant de ${fcfa(d.montant_devis)} hors taxes. Les frais de douane et de livraison vous seront communiqués une fois votre colis arrivé à Lomé.\n\n`
       + `Vous pouvez le retrouver dans votre messagerie Import Public pour le consulter, nous poser vos questions ou procéder au paiement :\n${cfg.urlSite.replace(/^https?:\/\//, '')}/#/messages\n\n`
       + `${n >= 4 ? 'Sans nouvelle de votre part, nous clôturerons cette demande dans quelques jours.\n\n' : ''}Merci et à bientôt,\n\nL'équipe Import Public`;
     const opt = (vals, cur, fmt) => vals.map((v) => `<option value="${v}"${Number(cur) === v ? ' selected' : ''}>${fmt(v)}</option>`).join('');
@@ -845,7 +847,7 @@
       ${peutChiffrer ? `<form class="carte" id="form-devis">
         <h2>${d.statut === 'nouvelle' ? 'Envoyer un prix' : 'Modifier le devis'}</h2>
         ${chiffrage.html}
-        <label for="montant">Prix total livré à Lomé (F CFA)</label>
+        <label for="montant">Prix total hors taxes, transport jusqu'à Lomé inclus (F CFA)</label>
         <input id="montant" type="number" inputmode="numeric" min="1" required value="${esc(d.montant_devis || '')}">
         <label for="note">Message au client (affiché sur le devis)</label>
         <textarea id="note" placeholder="Ex. : Modèle disponible en noir, livraison aérien sous 3 semaines.">${esc(d.note_devis || '')}</textarea>
@@ -873,6 +875,7 @@
           <button class="btn" id="rembourser-dem">Marquer comme remboursé</button>` : ''}
         <div id="zone-wa"></div>
         ${['payee', 'commandee', 'entrepot_chine', 'en_transit', 'arrivee'].includes(d.statut) ? blocRetard() : ''}
+        ${['payee', 'commandee', 'entrepot_chine', 'en_transit', 'arrivee', 'livree'].includes(d.statut) ? blocDouane(d.frais_douane, false) : ''}
       </div>
       ${blocDocs}
       ${opsDemande.html}
@@ -885,6 +888,7 @@
         noms, vide: '<p>Aucun message pour l\'instant.</p>' });
     }
     brancherRetard(null, d.id);
+    brancherDouane(null, d.id);
     const iSrc = document.getElementById('src-img');
     if (iSrc) {
       document.getElementById('src-img-btn').addEventListener('click', () => iSrc.click());
@@ -1083,6 +1087,45 @@
   }
 
   // Retard de livraison : message à tous les clients payés de la campagne (ou au client de la demande)
+  // Frais de douane : par unité pour une campagne (les mêmes pour tous), montant total pour une demande sur mesure.
+  // Ils sont indiqués au client dans le message d'arrivée du colis et sur son bon de retrait.
+  function blocDouane(valeur, campagne) {
+    return `<form class="carte" id="form-douane">
+      <h2>Frais de douane</h2>
+      <p class="discret">${campagne ? 'Montant par unité, le même pour tous les clients de la campagne.' : 'Montant total pour ce colis.'}
+        Il est indiqué au client à l'arrivée du colis (message et bon de retrait) et encaissé au retrait.</p>
+      <div class="rangee"><div><label for="douane">${campagne ? 'Douane par unité (F)' : 'Douane (F)'}</label>
+        <input id="douane" type="number" inputmode="numeric" min="0" value="${valeur == null ? '' : esc(valeur)}" placeholder="Ex. : 1500"></div></div>
+      <div class="boutons"><button class="btn">Enregistrer</button>
+        <button type="button" class="btn btn-second" id="douane-informer">Informer ${campagne ? 'les clients' : 'le client'}</button></div>
+      <p class="aide">« Informer » envoie le montant aux clients dont le colis est attendu ou déjà arrivé. Inutile si vous l'enregistrez avant l'arrivée : le message d'arrivée le contient déjà.</p>
+    </form>`;
+  }
+  function brancherDouane(campagneId, demandeId) {
+    const f = document.getElementById('form-douane');
+    if (!f) return;
+    f.addEventListener('submit', (ev) => {
+      ev.preventDefault();
+      occupe(f.querySelector('button'), async () => {
+        const v = document.getElementById('douane').value.trim();
+        const val = v === '' ? null : parseInt(v, 10);
+        const { error: e } = campagneId
+          ? await sb.from('campagnes').update({ frais_douane_unitaire: val }).eq('id', campagneId)
+          : await sb.from('demandes').update({ frais_douane: val }).eq('id', demandeId);
+        if (e) { toast(msgErreur(e), 'ko'); return; }
+        toast('Frais de douane enregistrés');
+      });
+    });
+    document.getElementById('douane-informer').addEventListener('click', (ev) => {
+      if (!confirm('Envoyer le montant des frais de douane aux clients concernés ?')) return;
+      occupe(ev.currentTarget, async () => {
+        const { data, error: e } = await sb.rpc('annoncer_douane', { p_campagne: campagneId, p_demande: demandeId });
+        if (e) { toast(msgErreur(e), 'ko'); return; }
+        toast(data ? `${data} client${data > 1 ? 's' : ''} informé${data > 1 ? 's' : ''}` : 'Aucun colis en cours pour l\'instant');
+      });
+    });
+  }
+
   function blocRetard() {
     const demain = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
     return `<details class="bloc-retard"><summary class="lien-texte">Annoncer un retard aux clients</summary>
@@ -1350,10 +1393,12 @@
           <div class="grille-lignes">${liste.data.length ? liste.data.map((c) => `
             <div class="ligne">
               <div style="flex:1;min-width:0"><div class="ligne-titre">${esc(c.reference)} · ${esc(c.client || 'Client')}</div>
-                <small>${esc(c.objet || '')}${c.etat === 'endommage' ? ' · endommagé' : ''} · ${c.remis_le ? 'remis le ' + date(c.remis_le, true) : c.recu_le ? 'reçu le ' + date(c.recu_le, true) : 'créé le ' + date(c.created_at)}</small></div>
+                <small>${esc(c.objet || '')}${c.etat === 'endommage' ? ' · endommagé' : ''} · ${c.remis_le ? 'remis le ' + date(c.remis_le, true) : c.recu_le ? 'reçu le ' + date(c.recu_le, true) : 'créé le ' + date(c.created_at)}</small>
+                ${c.statut !== 'remis' ? `<div class="encaisser">${c.a_encaisser == null ? '⚠ Douane non renseignée' : c.a_encaisser > 0 ? 'À encaisser au retrait : <b>' + fcfa(c.a_encaisser) + '</b> (douane)' : 'Rien à encaisser'}${c.frais_livraison != null ? ` · Livraison proposée : <b>${fcfa(c.frais_livraison)}</b>${c.adresse_livraison ? ' (' + esc(c.adresse_livraison) + ')' : ''}` : ''}</div>` : ''}</div>
               <div class="actions-ligne">${badge(c.statut)}
                 ${c.telephone && ['recu', 'non_recupere'].includes(c.statut) ? `<a class="btn btn-wa btn-petit" target="_blank" rel="noopener" href="${waLien(c.telephone,
-                  `Bonjour ${(c.client || '').split(' ')[0]}, votre colis Import Public (réf. ${c.reference}) vous attend au point de retrait ${point.nom}${point.adresse ? ', ' + point.adresse : ''}${point.horaires ? ' (' + point.horaires + ')' : ''}. Présentez votre code de retrait, visible dans votre compte sur ${cfg.urlSite}`)}">Prévenir</a>` : ''}
+                  `Bonjour ${(c.client || '').split(' ')[0]}, votre colis Import Public (réf. ${c.reference}) vous attend au point de retrait ${point.nom}${point.adresse ? ', ' + point.adresse : ''}${point.horaires ? ' (' + point.horaires + ')' : ''}.${c.a_encaisser > 0 ? ' Frais de douane à régler au retrait : ' + fcfa(c.a_encaisser) + '.' : ''} Présentez votre code de retrait, visible dans votre compte sur ${cfg.urlSite}`)}">Prévenir</a>` : ''}
+                ${estStaff() && ['attendu', 'recu', 'non_recupere'].includes(c.statut) ? `<button class="btn btn-second btn-petit" data-livrer="${esc(c.id)}">Proposer la livraison</button>` : ''}
                 ${c.statut === 'recu' ? `<button class="btn btn-second btn-petit" data-non-recupere="${esc(c.reference)}">Non récupéré</button>` : ''}
                 ${['recu', 'non_recupere'].includes(c.statut) ? `<button class="btn btn-ko btn-petit" data-litige="${esc(c.reference)}">Litige</button>` : ''}
               </div></div>`).join('') : '<p class="discret">Aucun colis.</p>'}</div>
@@ -1379,8 +1424,9 @@
         const { data, error: e } = await sb.rpc('recevoir_colis', { p_reference: ref(), p_etat: etatColis, p_note: null });
         if (e) { resultat(`<div class="alerte alerte-ko">${esc(msgErreur(e))}</div>`); return; }
         resultat(`<div class="alerte alerte-ok">Colis ${esc(data.reference)} enregistré${etatColis === 'endommage' ? ' (endommagé, signalé en litige)' : ''}.
+          ${data.a_encaisser == null ? '<br>⚠ Frais de douane non renseignés : indiquez-les dans la campagne ou la demande.' : data.a_encaisser > 0 ? '<br>À encaisser au retrait : <b>' + fcfa(data.a_encaisser) + '</b>.' : ''}
           ${data.telephone ? `<div class="boutons"><a class="btn btn-wa btn-petit" target="_blank" rel="noopener" href="${waLien(data.telephone,
-            `Bonjour ${(data.client || '').split(' ')[0]}, votre colis Import Public (réf. ${data.reference}) est arrivé au point de retrait ${data.point}${data.adresse ? ', ' + data.adresse : ''}${data.horaires ? ' (' + data.horaires + ')' : ''}. Présentez votre code de retrait, visible dans votre compte sur ${cfg.urlSite}`)}">Prévenir ${esc((data.client || 'le client').split(' ')[0])}</a></div>` : ''}</div>`);
+            `Bonjour ${(data.client || '').split(' ')[0]}, votre colis Import Public (réf. ${data.reference}) est arrivé au point de retrait ${data.point}${data.adresse ? ', ' + data.adresse : ''}${data.horaires ? ' (' + data.horaires + ')' : ''}.${data.a_encaisser > 0 ? ' Frais de douane à régler au retrait : ' + fcfa(data.a_encaisser) + '.' : ''} Présentez votre code de retrait, visible dans votre compte sur ${cfg.urlSite}`)}">Prévenir ${esc((data.client || 'le client').split(' ')[0])}</a></div>` : ''}</div>`);
         document.getElementById('ref-colis').value = '';
       });
     };
@@ -1405,6 +1451,17 @@
       });
     });
     vue.querySelectorAll('[data-non-recupere]').forEach(signaler('non_recupere', 'Colis non récupéré'));
+    vue.querySelectorAll('[data-livrer]').forEach((b) => b.addEventListener('click', () => {
+      const frais = prompt('Frais de livraison pour ce client (F CFA) :');
+      if (frais === null) return;
+      const n = parseInt(String(frais).replace(/\D/g, ''), 10);
+      if (!(n >= 0)) { toast('Montant invalide', 'ko'); return; }
+      const adresse = prompt('Adresse de livraison (quartier, repère), facultatif :') || '';
+      occupe(b, async () => {
+        const { error: e } = await sb.rpc('proposer_livraison', { p_colis: b.dataset.livrer, p_frais: n, p_adresse: adresse });
+        if (e) toast(msgErreur(e), 'ko'); else { toast('Proposition envoyée au client'); router(); }
+      });
+    }));
     vue.querySelectorAll('[data-litige]').forEach(signaler('litige', 'Litige'));
     const fp = document.getElementById('form-payer-point');
     if (fp) fp.addEventListener('submit', (ev) => {
