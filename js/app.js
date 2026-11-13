@@ -672,11 +672,21 @@
     else if (statut !== 'toutes') q = q.eq('statut', statut);
     const [{ data, error }, { data: tous }] = await Promise.all([q, sb.from('demandes').select('statut').limit(1000)]);
     if (error) throw error;
-    // Liens fournisseurs internes déjà trouvés (équipe seulement)
+    // Liens et images trouvés par l'équipe (équipe seulement)
     const sources = {};
+    const imagesEquipe = {};
     if (data.length) {
-      const { data: src } = await sb.from('demandes_sources').select('demande_id,lien').in('demande_id', data.map((d) => d.id));
-      (src || []).forEach((x) => { if (x.lien) sources[x.demande_id] = x.lien; });
+      const { data: src } = await sb.from('demandes_sources').select('demande_id,lien,image_path').in('demande_id', data.map((d) => d.id));
+      const imgs = (src || []).filter((x) => x.image_path);
+      const signees = {};
+      if (imgs.length) {
+        const { data: u } = await sb.storage.from('sources').createSignedUrls(imgs.map((x) => x.image_path), 3600);
+        (u || []).forEach((x) => { if (x && x.signedUrl) signees[x.path] = x.signedUrl; });
+      }
+      (src || []).forEach((x) => {
+        if (x.lien) sources[x.demande_id] = x.lien;
+        if (x.image_path && signees[x.image_path]) imagesEquipe[x.demande_id] = signees[x.image_path];
+      });
     }
     // Miniatures : une seule requête pour toutes les photos
     const chemins = data.map((d) => d.photo_path).filter(Boolean);
@@ -689,8 +699,8 @@
       ? ['payee', 'commandee', 'entrepot_chine', 'en_transit', 'arrivee'].includes(x.statut) : x.statut === k).length;
     const filtres = [['nouvelle', 'À chiffrer'], ['devis_envoye', 'Devis envoyés'], ['acceptee', 'À payer'], ['en_cours', 'En cours'], ['toutes', 'Toutes']];
     const initiales = (n) => (n || '?').split(/\s+/).filter(Boolean).slice(0, 2).map((x) => x[0]).join('').toUpperCase();
-    const visuel = (d, cls) => photos[d.photo_path]
-      ? `<img class="${cls}" src="${esc(photos[d.photo_path])}" alt="" loading="lazy">`
+    const visuel = (d, cls) => imagesEquipe[d.id] || photos[d.photo_path]
+      ? `<img class="${cls}" src="${esc(imagesEquipe[d.id] || photos[d.photo_path])}" alt="" loading="lazy">`
       : `<span class="${cls} dm-sans-photo"><span class="dm-cube">${window.ICO.colis}</span><small>Pas de photo</small></span>`;
     const prix = (d) => d.montant_devis ? `<b class="dm-prix">${fcfa(d.montant_devis)}</b>` : d.budget ? `<span class="dm-budget">Budget ${fcfa(d.budget)}</span>` : '';
     const puces = (d) => `<span class="dm-puce">${window.ICO.colis}${d.quantite} pièce${d.quantite > 1 ? 's' : ''}</span>
@@ -762,9 +772,10 @@
     const [{ data: docs }, { data: paies }, { data: source }] = await Promise.all([
       sb.from('documents').select('id,numero,type,total,remplace,cree_le').eq('demande_id', d.id).order('cree_le', { ascending: false }),
       sb.from('paiements').select('id,montant,statut,operateur,numero_payeur').eq('demande_id', d.id),
-      estSupport() ? sb.from('demandes_sources').select('lien,note,maj_le,profils(nom_complet)').eq('demande_id', d.id).maybeSingle() : Promise.resolve({ data: null })
+      estSupport() ? sb.from('demandes_sources').select('lien,note,image_path,maj_le,profils(nom_complet)').eq('demande_id', d.id).maybeSingle() : Promise.resolve({ data: null })
     ]);
     const src = source || {};
+    const imgEquipe = src.image_path ? (await sb.storage.from('sources').createSignedUrl(src.image_path, 3600)).data : null;
     const ouvrable = (u) => /^https?:\/\//i.test(u || '');
     const blocSource = estSupport() ? `<form class="carte carte-interne" id="form-source">
         <div class="interne-tete"><h2>🔗 Lien fournisseur vérifié</h2><span class="badge-interne">Équipe seulement</span></div>
@@ -772,6 +783,16 @@
         <label for="src-lien">Lien valide</label>
         <div class="src-ligne"><input id="src-lien" type="url" inputmode="url" placeholder="https://detail.1688.com/…" value="${esc(src.lien || '')}">
           ${ouvrable(src.lien) ? `<a class="btn btn-second" href="${esc(src.lien)}" target="_blank" rel="noopener">Ouvrir</a>` : ''}</div>
+        <label>Image du produit trouvé</label>
+        <div class="src-image">
+          ${imgEquipe ? `<a href="${esc(imgEquipe.signedUrl)}" target="_blank" rel="noopener"><img src="${esc(imgEquipe.signedUrl)}" alt="Produit trouvé"></a>` : '<span class="src-vide">Aucune image</span>'}
+          <div class="src-image-actions">
+            <button type="button" class="btn btn-second btn-petit" id="src-img-btn">${imgEquipe ? 'Remplacer l\'image' : '📷 Ajouter une image'}</button>
+            ${imgEquipe ? '<button type="button" class="btn btn-lien btn-petit" id="src-img-suppr">Retirer</button>' : ''}
+            <input id="src-img" type="file" accept="image/*" hidden>
+          </div>
+        </div>
+        <p class="aide" style="margin-top:4px">Elle remplace la photo du client dans vos vues Sur mesure. Le client ne la voit pas.</p>
         <label for="src-note">Note interne (facultatif)</label>
         <textarea id="src-note" rows="3" placeholder="Ex. : fournisseur Yiwu Xinda, 12 ¥ / pièce dès 50, couleur noire réf. A-302, contact WeChat…">${esc(src.note || '')}</textarea>
         ${src.maj_le ? `<p class="aide">Modifié le ${esc(date(src.maj_le, true))}${src.profils && src.profils.nom_complet ? ' par ' + esc(src.profils.nom_complet) : ''}.</p>` : ''}
@@ -864,6 +885,32 @@
         noms, vide: '<p>Aucun message pour l\'instant.</p>' });
     }
     brancherRetard(null, d.id);
+    const iSrc = document.getElementById('src-img');
+    if (iSrc) {
+      document.getElementById('src-img-btn').addEventListener('click', () => iSrc.click());
+      iSrc.addEventListener('change', () => {
+        const f = iSrc.files[0]; iSrc.value = '';
+        if (!f) return;
+        occupe(document.getElementById('src-img-btn'), async () => {
+          const blob = await compresserImage(f, 1400, 0.82);
+          const type = blob.type || 'image/jpeg';
+          const chemin = `${d.id}/${Date.now()}.${{ 'image/png': 'png', 'image/webp': 'webp' }[type] || 'jpg'}`;
+          const up = await sb.storage.from('sources').upload(chemin, blob, { contentType: type });
+          if (up.error) { toast(msgErreur(up.error), 'ko'); return; }
+          const { error: e } = await sb.from('demandes_sources').upsert({ demande_id: d.id, image_path: chemin });
+          if (e) { toast(msgErreur(e), 'ko'); return; }
+          if (src.image_path) await sb.storage.from('sources').remove([src.image_path]);
+          toast('Image enregistrée (visible par l\'équipe uniquement)'); router();
+        });
+      });
+      const bSup = document.getElementById('src-img-suppr');
+      if (bSup) bSup.addEventListener('click', () => occupe(bSup, async () => {
+        const { error: e } = await sb.from('demandes_sources').update({ image_path: null }).eq('demande_id', d.id);
+        if (e) { toast(msgErreur(e), 'ko'); return; }
+        await sb.storage.from('sources').remove([src.image_path]);
+        toast('Image retirée'); router();
+      }));
+    }
     const fSrc = document.getElementById('form-source');
     if (fSrc) fSrc.addEventListener('submit', (ev) => {
       ev.preventDefault();

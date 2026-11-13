@@ -1344,3 +1344,7 @@ body.avec-wa main { padding-bottom: 72px; }
 .chat-wa:hover { background: #1ebe5a; }
 .aide-paiement-wa { margin: 14px 0 0; font-size: .92rem; color: var(--encre-2); }
 .aide-paiement-wa a { font-weight: 800; color: #128c48; }
+.src-image { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.src-image img { width: 120px; height: 120px; object-fit: cover; border-radius: 12px; border: 1px solid var(--ligne); display: block; background: #fff; }
+.src-vide { width: 120px; height: 120px; border-radius: 12px; border: 1px dashed #c9a227; display: flex; align-items: center; justify-content: center; color: #7a5b00; font-size: .85rem; background: #fff; }
+.src-image-actions { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
