@@ -1326,3 +1326,14 @@ body.avec-wa main { padding-bottom: 72px; }
 @keyframes pg-vibre { 0%, 70%, 100% { transform: rotate(0); } 75% { transform: rotate(-8deg); } 85% { transform: rotate(8deg); } 95% { transform: rotate(-4deg); } }
 @media (prefers-reduced-motion: reduce) { .pg-tel, .pg-point { animation: none; } }
 .pg-attente .boutons { justify-content: center; align-items: center; }
+
+/* ---------- Lien fournisseur interne (sur mesure) ---------- */
+.carte.carte-interne { border: 1px dashed #c9a227; background: #fffbea; }
+.interne-tete { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.interne-tete h2 { margin: 0; }
+.badge-interne { font-size: .75rem; font-weight: 800; color: #7a5b00; background: #ffeeb0; border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
+.src-ligne { display: flex; gap: 8px; align-items: stretch; }
+.src-ligne input { flex: 1; min-width: 0; margin: 0; }
+.dm-puce.dm-source { background: #fff3c4; color: #7a5b00; }
+.dm-recherche { display: flex; gap: 8px; align-items: center; margin: 4px 0 12px; flex-wrap: wrap; }
+.dm-recherche input { flex: 1 1 260px; min-width: 0; margin: 0; }

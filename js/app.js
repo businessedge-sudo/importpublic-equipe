@@ -658,15 +658,26 @@
   // Demandes sur mesure
   // ------------------------------------------------------------------
   async function vueDemandes(_, params) {
-    const statut = params.get('statut') || 'nouvelle';
+    const recherche = (params.get('q') || '').trim();
+    const statut = recherche ? 'toutes' : (params.get('statut') || 'nouvelle');
     const memoVue = (v) => { try { if (v) localStorage.setItem('ip_vue_demandes', v); return localStorage.getItem('ip_vue_demandes'); } catch { return v; } };
     const mode = params.get('vue') || memoVue() || 'galerie';
     let q = sb.from('demandes').select('id,description,statut,quantite,budget,montant_devis,created_at,photo_path,mode_transport,relance_wa_a_faire,profils(nom_complet,telephone)')
       .order('created_at', { ascending: false }).limit(100);
-    if (statut === 'en_cours') q = q.in('statut', ['payee', 'commandee', 'entrepot_chine', 'en_transit', 'arrivee']);
+    if (recherche) {
+      const { data: ids, error: eR } = await sb.rpc('chercher_demandes', { p_texte: recherche });
+      if (eR) throw eR;
+      q = q.in('id', (ids || []).map((x) => (typeof x === 'object' ? Object.values(x)[0] : x)).concat(['00000000-0000-0000-0000-000000000000']));
+    } else if (statut === 'en_cours') q = q.in('statut', ['payee', 'commandee', 'entrepot_chine', 'en_transit', 'arrivee']);
     else if (statut !== 'toutes') q = q.eq('statut', statut);
     const [{ data, error }, { data: tous }] = await Promise.all([q, sb.from('demandes').select('statut').limit(1000)]);
     if (error) throw error;
+    // Liens fournisseurs internes déjà trouvés (équipe seulement)
+    const sources = {};
+    if (data.length) {
+      const { data: src } = await sb.from('demandes_sources').select('demande_id,lien').in('demande_id', data.map((d) => d.id));
+      (src || []).forEach((x) => { if (x.lien) sources[x.demande_id] = x.lien; });
+    }
     // Miniatures : une seule requête pour toutes les photos
     const chemins = data.map((d) => d.photo_path).filter(Boolean);
     const photos = {};
@@ -684,7 +695,8 @@
     const prix = (d) => d.montant_devis ? `<b class="dm-prix">${fcfa(d.montant_devis)}</b>` : d.budget ? `<span class="dm-budget">Budget ${fcfa(d.budget)}</span>` : '';
     const puces = (d) => `<span class="dm-puce">${window.ICO.colis}${d.quantite} pièce${d.quantite > 1 ? 's' : ''}</span>
       ${d.mode_transport ? `<span class="dm-puce">${d.mode_transport === 'aerien' ? '✈️' : '🚢'} ${esc(lib(d.mode_transport))}</span>` : ''}
-      ${d.relance_wa_a_faire ? '<span class="dm-puce dm-alerte">Relance WhatsApp</span>' : ''}`;
+      ${d.relance_wa_a_faire ? '<span class="dm-puce dm-alerte">Relance WhatsApp</span>' : ''}
+      ${sources[d.id] ? '<span class="dm-puce dm-source" title="Lien fournisseur vérifié enregistré">🔗 Lien fournisseur</span>' : ''}`;
     const client = (d) => `<span class="dm-client"><span class="dm-avatar">${esc(initiales(d.profils && d.profils.nom_complet))}</span>
       <span><b>${esc((d.profils && d.profils.nom_complet) || 'Client')}</b><small>${esc(date(d.created_at, true))}</small></span></span>`;
 
@@ -708,8 +720,19 @@
           <button data-vue="galerie" class="${mode === 'galerie' ? 'actif' : ''}" aria-label="Vue galerie"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg>Galerie</button>
           <button data-vue="liste" class="${mode === 'liste' ? 'actif' : ''}" aria-label="Vue liste"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="5" height="5" rx="1.5"/><rect x="3" y="15" width="5" height="5" rx="1.5"/><path d="M11 6h10M11 9h6M11 17h10M11 20h6"/></svg>Liste</button>
         </div></div>
-      <div class="filtres">${filtres.map(([k, l]) => `<button class="${k === statut ? 'actif' : ''}" data-s="${k}">${l}<span class="dm-compte">${nb(k)}</span></button>`).join('')}</div>
+      <form class="dm-recherche" id="dm-recherche" role="search">
+        <input id="dm-q" type="search" value="${esc(recherche)}" placeholder="Retrouver un produit déjà demandé : mot de la description, du lien ou de la note…" aria-label="Rechercher une demande">
+        <button class="btn btn-second">Chercher</button>
+        ${recherche ? '<a class="btn btn-lien" href="#/demandes?statut=nouvelle">Effacer</a>' : ''}
+      </form>
+      ${recherche ? `<p class="discret">${data.length} résultat${data.length > 1 ? 's' : ''} pour « ${esc(recherche)} », tous statuts confondus.</p>`
+        : `<div class="filtres">${filtres.map(([k, l]) => `<button class="${k === statut ? 'actif' : ''}" data-s="${k}">${l}<span class="dm-compte">${nb(k)}</span></button>`).join('')}</div>`}
       ${data.length ? (mode === 'liste' ? liste() : galerie()) : `<div class="carte vide"><span class="dm-cube grand">${window.ICO.colis}</span><p>Aucune demande ici.</p></div>`}`;
+    document.getElementById('dm-recherche').addEventListener('submit', (ev) => {
+      ev.preventDefault();
+      const v = document.getElementById('dm-q').value.trim();
+      location.hash = '#/demandes?' + new URLSearchParams(v ? { q: v } : { statut: 'nouvelle' });
+    });
     // Photo illisible : on affiche le colis à la place
     vue.querySelectorAll('img.dm-photo, img.dm-mini').forEach((im) => im.addEventListener('error', () => {
       const r = document.createElement('span');
@@ -736,10 +759,24 @@
     const lienSuivi = `${cfg.urlSite}/#/demande/${d.id}`;
     const opsDemande = await ops.sectionDemande(d);
     const chiffrage = ops.aideChiffrage(d);
-    const [{ data: docs }, { data: paies }] = await Promise.all([
+    const [{ data: docs }, { data: paies }, { data: source }] = await Promise.all([
       sb.from('documents').select('id,numero,type,total,remplace,cree_le').eq('demande_id', d.id).order('cree_le', { ascending: false }),
-      sb.from('paiements').select('id,montant,statut,operateur,numero_payeur').eq('demande_id', d.id)
+      sb.from('paiements').select('id,montant,statut,operateur,numero_payeur').eq('demande_id', d.id),
+      estSupport() ? sb.from('demandes_sources').select('lien,note,maj_le,profils(nom_complet)').eq('demande_id', d.id).maybeSingle() : Promise.resolve({ data: null })
     ]);
+    const src = source || {};
+    const ouvrable = (u) => /^https?:\/\//i.test(u || '');
+    const blocSource = estSupport() ? `<form class="carte carte-interne" id="form-source">
+        <div class="interne-tete"><h2>🔗 Lien fournisseur vérifié</h2><span class="badge-interne">Équipe seulement</span></div>
+        <p class="discret">Le bon lien, celui où vous achetez vraiment (ou le lien corrigé si celui du client ne marche pas). Le client ne le voit jamais. Il reste enregistré : retrouvez-le plus tard avec la recherche de « Sur mesure ».</p>
+        <label for="src-lien">Lien valide</label>
+        <div class="src-ligne"><input id="src-lien" type="url" inputmode="url" placeholder="https://detail.1688.com/…" value="${esc(src.lien || '')}">
+          ${ouvrable(src.lien) ? `<a class="btn btn-second" href="${esc(src.lien)}" target="_blank" rel="noopener">Ouvrir</a>` : ''}</div>
+        <label for="src-note">Note interne (facultatif)</label>
+        <textarea id="src-note" rows="3" placeholder="Ex. : fournisseur Yiwu Xinda, 12 ¥ / pièce dès 50, couleur noire réf. A-302, contact WeChat…">${esc(src.note || '')}</textarea>
+        ${src.maj_le ? `<p class="aide">Modifié le ${esc(date(src.maj_le, true))}${src.profils && src.profils.nom_complet ? ' par ' + esc(src.profils.nom_complet) : ''}.</p>` : ''}
+        <button class="btn" style="margin-top:10px">Enregistrer le lien</button>
+      </form>` : '';
     const devis = (docs || []).find((x) => x.type === 'devis' && !x.remplace);
     const aRembourser = d.statut === 'annulee' ? (paies || []).filter((p) => p.statut === 'confirme') : [];
     const prenom = (cl.nom_complet || '').split(' ')[0] || '';
@@ -779,6 +816,7 @@
           <dt>Reçue le</dt><dd>${date(d.created_at, true)}</dd>
         </dl>
       </div>
+      ${blocSource}
       ${estSupport() ? `<div class="carte"><h2>Discussion avec ${esc(cl.nom_complet || 'le client')}</h2>
         <p class="discret">Posez vos questions avant d'envoyer le prix. Le client répond depuis l'onglet Messages du site.</p>
         <div id="zone-chat"></div></div>` : ''}
@@ -826,6 +864,18 @@
         noms, vide: '<p>Aucun message pour l\'instant.</p>' });
     }
     brancherRetard(null, d.id);
+    const fSrc = document.getElementById('form-source');
+    if (fSrc) fSrc.addEventListener('submit', (ev) => {
+      ev.preventDefault();
+      occupe(fSrc.querySelector('button'), async () => {
+        let lien = document.getElementById('src-lien').value.trim();
+        if (lien && !/^https?:\/\//i.test(lien)) lien = 'https://' + lien;
+        const note = document.getElementById('src-note').value.trim();
+        const { error: e } = await sb.from('demandes_sources').upsert({ demande_id: d.id, lien: lien || null, note: note || null });
+        if (e) { toast(msgErreur(e), 'ko'); return; }
+        toast('Lien enregistré (visible par l\'équipe uniquement)'); router();
+      });
+    });
     const bWa = document.getElementById('relance-wa-faite');
     if (bWa) bWa.addEventListener('click', () => occupe(bWa, async () => {
       const { error: e } = await sb.rpc('relance_wa_faite', { p_demande: d.id, p_texte: texteWa(d.relance_wa_a_faire) });
