@@ -20,8 +20,11 @@
       return meme(x, a) ? 'Aujourd\'hui' : meme(x, h) ? 'Hier' : x.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
     };
     // Texte → HTML sûr, liens cliquables, retours à la ligne
+    // Les liens WhatsApp (wa.me) deviennent un bouton lisible au lieu d'une longue adresse
     const enrichir = (t) => esc(t)
-      .replace(/(https?:\/\/[^\s<]+[^\s<.,;:!?)\]'"])/g, '<a href="$1" target="_blank" rel="noopener nofollow">$1</a>')
+      .replace(/(https?:\/\/[^\s<]+[^\s<.,;:!?)\]'"])/g, (u) => /^https:\/\/wa\.me\//.test(u)
+        ? `<a class="chat-wa" href="${u}" target="_blank" rel="noopener nofollow">💬 Écrire sur WhatsApp</a>`
+        : `<a href="${u}" target="_blank" rel="noopener nofollow">${u}</a>`)
       .replace(/\n/g, '<br>');
 
     // Monte une conversation dans `zone`. Renvoie le canal temps réel (à retirer en quittant la page).

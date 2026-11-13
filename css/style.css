@@ -1337,3 +1337,10 @@ body.avec-wa main { padding-bottom: 72px; }
 .dm-puce.dm-source { background: #fff3c4; color: #7a5b00; }
 .dm-recherche { display: flex; gap: 8px; align-items: center; margin: 4px 0 12px; flex-wrap: wrap; }
 .dm-recherche input { flex: 1 1 260px; min-width: 0; margin: 0; }
+
+/* Lien WhatsApp dans la messagerie et aide au paiement */
+.chat-wa { display: inline-flex; align-items: center; gap: 6px; margin: 4px 0; padding: 8px 14px; border-radius: 999px;
+  background: #25d366; color: #fff !important; font-weight: 800; text-decoration: none !important; }
+.chat-wa:hover { background: #1ebe5a; }
+.aide-paiement-wa { margin: 14px 0 0; font-size: .92rem; color: var(--encre-2); }
+.aide-paiement-wa a { font-weight: 800; color: #128c48; }
