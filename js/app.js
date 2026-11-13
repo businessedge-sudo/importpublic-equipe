@@ -479,10 +479,24 @@
     };
     dessinerPhotos();
     document.getElementById('ajout-photos').addEventListener('click', () => fichier.click());
-    fichier.addEventListener('change', () => {
-      [...fichier.files].forEach((f) => { if (photos.length < 10) photos.push({ fichier: f, url: URL.createObjectURL(f) }); });
-      if (fichier.files.length && photos.length >= 10) toast('10 photos au maximum');
+    fichier.addEventListener('change', async () => {
+      const liste = [...fichier.files];
       fichier.value = '';
+      const refus = [];
+      for (let f of liste) {
+        if (photos.length >= 10) { toast('10 photos au maximum'); break; }
+        // Vérification immédiate : une photo illisible est signalée tout de suite, pas au moment d'enregistrer
+        if (!(await window.IA.imageLisible(f))) {
+          if (window.IA.estHeic(f)) {
+            toast('Conversion de la photo iPhone…');
+            const j = await window.IA.convertirHeic(f).catch(() => null);
+            if (j) f = new File([j], (f.name || 'photo').replace(/\.(heic|heif)$/i, '') + '.jpg', { type: 'image/jpeg' });
+            else { refus.push(f); continue; }
+          } else { refus.push(f); continue; }
+        }
+        photos.push({ fichier: f, url: URL.createObjectURL(f) });
+      }
+      if (refus.length) toast(`Photo illisible : ${refus.map((f) => `${f.name} (${f.type || 'format inconnu'})`).join(', ')}. Enregistrez-la en JPG ou PNG (ouvrez-la puis « Enregistrer sous », ou faites une capture d'écran) et réessayez.`, 'ko');
       dessinerPhotos();
     });
 
