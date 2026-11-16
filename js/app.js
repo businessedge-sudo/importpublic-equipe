@@ -395,7 +395,8 @@
         <div class="boutons" style="margin-top:10px">
           ${!['brouillon', 'echec_quota'].includes(c.statut) ? `<a class="btn btn-second btn-petit" href="#/bon-commande/${c.id}">${window.ICO.fichier}Bon de commande fournisseur</a>` : ''}
           ${c.statut === 'ouverte' ? `<button type="button" class="btn btn-wa btn-petit" id="partager-campagne">${window.ICO.message}Partager sur WhatsApp</button>
-            <button type="button" class="btn btn-second btn-petit" id="copier-campagne">Copier le message</button>` : ''}
+            <button type="button" class="btn btn-second btn-petit" id="copier-campagne">Copier le message</button>
+            <button type="button" class="btn btn-second btn-petit" id="copier-lien-campagne">Copier le lien</button>` : ''}
           ${c.id && estAdmin() ? `<button type="button" class="btn btn-lien btn-petit btn-supprimer" id="supprimer-campagne">🗑 Supprimer la campagne</button>` : ''}
         </div>
         ${['quota_atteint', 'commandee', 'entrepot_chine', 'en_transit', 'arrivee'].includes(c.statut) ? blocRetard() : ''}
@@ -571,6 +572,8 @@
     if (bPart) bPart.addEventListener('click', () => window.IA.partagerCampagne(c));
     const bCop = document.getElementById('copier-campagne');
     if (bCop) bCop.addEventListener('click', () => window.IA.copierPartage(c));
+    const bLien = document.getElementById('copier-lien-campagne');
+    if (bLien) bLien.addEventListener('click', () => window.IA.copierLienCampagne(c));
     sections.brancher();
     brancherRetard(c.id, null);
     brancherDouane(c.id, null);
