@@ -405,6 +405,21 @@
             <button type="button" class="btn btn-second btn-petit" id="copier-lien-campagne">Copier le lien</button>` : ''}
           ${c.id && estAdmin() ? `<button type="button" class="btn btn-lien btn-petit btn-supprimer" id="supprimer-campagne">🗑 Supprimer la campagne</button>` : ''}
         </div>
+        ${estSupport() && !nouvelle ? `<form class="carte carte-interne" id="form-source-c">
+          <div class="interne-tete"><h2>🔗 Lien du fournisseur retenu</h2><span class="badge-interne">Équipe seulement</span></div>
+          <p class="discret" style="margin-top:0">Pour retrouver le fournisseur à la clôture : commande, paiement, dernières formalités. Les clients ne voient jamais ces informations.</p>
+          <label for="src-lien">Lien du produit chez le fournisseur</label>
+          <div class="src-ligne"><input id="src-lien" type="text" inputmode="url" value="${esc(src.lien || '')}" placeholder="https://www.alibaba.com/product-detail/…">
+            ${/^https?:\/\//i.test(src.lien || '') ? `<a class="btn btn-second" href="${esc(src.lien)}" target="_blank" rel="noopener">Ouvrir</a>` : ''}</div>
+          <div class="rangee">
+            <div><label for="src-four">Fournisseur</label><input id="src-four" value="${esc(src.fournisseur || '')}" placeholder="Ex. : Shenzhen Starlighting Electronics"></div>
+            <div><label for="src-contact">Contact</label><input id="src-contact" value="${esc(src.contact || '')}" placeholder="WeChat, WhatsApp, e-mail, nom du vendeur…"></div>
+          </div>
+          <label for="src-note">Note interne</label>
+          <textarea id="src-note" rows="2" placeholder="Prix négocié, MOQ, délai de production, couleur de référence…">${esc(src.note || '')}</textarea>
+          ${src.maj_le ? `<p class="aide">Modifié le ${esc(date(src.maj_le, true))}${src.profils && src.profils.nom_complet ? ' par ' + esc(src.profils.nom_complet) : ''}.</p>` : ''}
+        <button class="btn" style="margin-top:10px">Enregistrer le fournisseur</button>
+          </form>` : ''}
         ${['quota_atteint', 'commandee', 'entrepot_chine', 'en_transit', 'arrivee'].includes(c.statut) ? blocRetard() : ''}
         ${c.id && c.statut !== 'brouillon' ? blocDouane(c.frais_douane_unitaire, true, c.douane_annoncee_le) : ''}
         ${['ouverte', 'brouillon'].includes(c.statut) ? `<div class="bloc-delai-eq">
@@ -456,7 +471,7 @@
           <div><label for="quota">Quota (unités)</label><input id="quota" type="number" inputmode="numeric" min="1" required value="${esc(c.quota)}"></div>
           <div><label for="ft">Transport/unité si HT</label><input id="ft" type="number" inputmode="numeric" min="0" value="${esc(c.frais_transport_unitaire || '')}"></div>
         </div>
-        ${estSupport() ? `<fieldset class="carte-interne fournisseur-interne">
+        ${estSupport() && nouvelle ? `<fieldset class="carte-interne fournisseur-interne">
           <legend>🔗 Fournisseur <span class="badge-interne">Équipe seulement</span></legend>
           <p class="discret" style="margin-top:0">Pour retrouver le fournisseur à la clôture : commande, paiement, dernières formalités. Les clients ne voient jamais ces informations.</p>
           <label for="src-lien">Lien du produit chez le fournisseur</label>
@@ -575,7 +590,7 @@
           r = await sb.from('campagnes').update(ligne).eq('id', c.id).select('id').single();
         }
         if (r.error) { toast(msgErreur(r.error), 'ko'); return; }
-        if (document.getElementById('src-lien')) {
+        if (nouvelle && document.getElementById('src-lien')) {
           const v2 = (x) => document.getElementById(x).value.trim() || null;
           let lienF = v2('src-lien');
           if (lienF && !/^https?:\/\//i.test(lienF)) lienF = 'https://' + lienF;
@@ -598,6 +613,18 @@
       ta.focus();
     }));
     if (nouvelle) return;
+    const fSrcC = document.getElementById('form-source-c');
+    if (fSrcC) fSrcC.addEventListener('submit', (ev) => {
+      ev.preventDefault();
+      occupe(fSrcC.querySelector('button'), async () => {
+        const v2 = (x) => document.getElementById(x).value.trim() || null;
+        let lienF = v2('src-lien');
+        if (lienF && !/^https?:\/\//i.test(lienF)) lienF = 'https://' + lienF;
+        const { error: e } = await sb.from('campagnes_sources').upsert({ campagne_id: c.id, lien: lienF, fournisseur: v2('src-four'), contact: v2('src-contact'), note: v2('src-note') });
+        if (e) { toast(msgErreur(e), 'ko'); return; }
+        toast('Fournisseur enregistré (visible par l\'équipe uniquement)'); router();
+      });
+    });
     const bPart = document.getElementById('partager-campagne');
     if (bPart) bPart.addEventListener('click', () => window.IA.partagerCampagne(c));
     const bCop = document.getElementById('copier-campagne');
