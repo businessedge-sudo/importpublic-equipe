@@ -1369,3 +1369,4 @@ dialog.dialogue { border: 0; border-radius: 16px; padding: 22px; width: min(460p
 dialog.dialogue::backdrop { background: rgba(20, 12, 5, .45); }
 dialog.dialogue h2 { margin-top: 0; }
 .variantes-raccourcis { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 2px; }
+.btn-partage { margin: 0 0 10px; }

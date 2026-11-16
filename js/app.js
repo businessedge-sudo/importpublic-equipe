@@ -394,6 +394,8 @@
         <div id="zone-wa"></div>
         <div class="boutons" style="margin-top:10px">
           ${!['brouillon', 'echec_quota'].includes(c.statut) ? `<a class="btn btn-second btn-petit" href="#/bon-commande/${c.id}">${window.ICO.fichier}Bon de commande fournisseur</a>` : ''}
+          ${c.statut === 'ouverte' ? `<button type="button" class="btn btn-wa btn-petit" id="partager-campagne">${window.ICO.message}Partager</button>
+            <button type="button" class="btn btn-second btn-petit" id="copier-campagne">Copier le message</button>` : ''}
           ${c.id && estAdmin() ? `<button type="button" class="btn btn-lien btn-petit btn-supprimer" id="supprimer-campagne">🗑 Supprimer la campagne</button>` : ''}
         </div>
         ${['quota_atteint', 'commandee', 'entrepot_chine', 'en_transit', 'arrivee'].includes(c.statut) ? blocRetard() : ''}
@@ -565,6 +567,10 @@
       ta.focus();
     }));
     if (nouvelle) return;
+    const bPart = document.getElementById('partager-campagne');
+    if (bPart) bPart.addEventListener('click', () => window.IA.partagerCampagne(c));
+    const bCop = document.getElementById('copier-campagne');
+    if (bCop) bCop.addEventListener('click', () => window.IA.copierPartage(c));
     sections.brancher();
     brancherRetard(c.id, null);
     brancherDouane(c.id, null);
