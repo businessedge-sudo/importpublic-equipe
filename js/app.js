@@ -370,6 +370,12 @@
       if (o.error) throw o.error;
       commandes = o.data;
     }
+    // Fiche fournisseur (équipe seulement, table séparée : les visiteurs ne la lisent jamais)
+    let src = {};
+    if (id !== 'nouvelle' && estSupport()) {
+      const rs = await sb.from('campagnes_sources').select('lien,fournisseur,contact,note,maj_le,profils(nom_complet)').eq('campagne_id', id).maybeSingle();
+      src = rs.data || {};
+    }
     const nouvelle = id === 'nouvelle';
     const local = (iso) => { const d = new Date(iso); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
     const i = SUITE_CAMPAGNE.indexOf(c.statut);
@@ -450,6 +456,20 @@
           <div><label for="quota">Quota (unités)</label><input id="quota" type="number" inputmode="numeric" min="1" required value="${esc(c.quota)}"></div>
           <div><label for="ft">Transport/unité si HT</label><input id="ft" type="number" inputmode="numeric" min="0" value="${esc(c.frais_transport_unitaire || '')}"></div>
         </div>
+        ${estSupport() ? `<fieldset class="carte-interne fournisseur-interne">
+          <legend>🔗 Fournisseur <span class="badge-interne">Équipe seulement</span></legend>
+          <p class="discret" style="margin-top:0">Pour retrouver le fournisseur à la clôture : commande, paiement, dernières formalités. Les clients ne voient jamais ces informations.</p>
+          <label for="src-lien">Lien du produit chez le fournisseur</label>
+          <div class="src-ligne"><input id="src-lien" type="text" inputmode="url" value="${esc(src.lien || '')}" placeholder="https://www.alibaba.com/product-detail/…">
+            ${/^https?:\/\//i.test(src.lien || '') ? `<a class="btn btn-second" href="${esc(src.lien)}" target="_blank" rel="noopener">Ouvrir</a>` : ''}</div>
+          <div class="rangee">
+            <div><label for="src-four">Fournisseur</label><input id="src-four" value="${esc(src.fournisseur || '')}" placeholder="Ex. : Shenzhen Starlighting Electronics"></div>
+            <div><label for="src-contact">Contact</label><input id="src-contact" value="${esc(src.contact || '')}" placeholder="WeChat, WhatsApp, e-mail, nom du vendeur…"></div>
+          </div>
+          <label for="src-note">Note interne</label>
+          <textarea id="src-note" rows="2" placeholder="Prix négocié, MOQ, délai de production, couleur de référence…">${esc(src.note || '')}</textarea>
+          ${src.maj_le ? `<p class="aide">Modifié le ${esc(date(src.maj_le, true))}${src.profils && src.profils.nom_complet ? ' par ' + esc(src.profils.nom_complet) : ''}.</p>` : ''}
+        </fieldset>` : ''}
         <label for="lienpay">Lien de paiement (facultatif)</label>
         <input id="lienpay" type="text" inputmode="url" value="${esc(c.lien_paiement || '')}" placeholder="https://…">
         <div class="aide">Le lien Monniz à montant fixe, au prix d'une pièce. Il est envoyé aux clients qui commandent 1 pièce (message, relances, bouton « Payer en ligne »). Au-delà d'une pièce, le client paie avec notre aide sur WhatsApp.</div>
@@ -555,6 +575,16 @@
           r = await sb.from('campagnes').update(ligne).eq('id', c.id).select('id').single();
         }
         if (r.error) { toast(msgErreur(r.error), 'ko'); return; }
+        if (document.getElementById('src-lien')) {
+          const v2 = (x) => document.getElementById(x).value.trim() || null;
+          let lienF = v2('src-lien');
+          if (lienF && !/^https?:\/\//i.test(lienF)) lienF = 'https://' + lienF;
+          const fiche = { lien: lienF, fournisseur: v2('src-four'), contact: v2('src-contact'), note: v2('src-note') };
+          if (Object.values(fiche).some(Boolean) || src.lien || src.fournisseur || src.contact || src.note) {
+            const rs = await sb.from('campagnes_sources').upsert({ campagne_id: r.data.id, ...fiche });
+            if (rs.error) toast('Campagne enregistrée, mais pas la fiche fournisseur : ' + msgErreur(rs.error), 'ko');
+          }
+        }
         toast(images.length ? `Enregistré avec ${images.length} photo${images.length > 1 ? 's' : ''}` : 'Enregistré');
         if (nouvelle) location.hash = '#/campagne/' + r.data.id; else router();
       });

@@ -1387,3 +1387,5 @@ dialog.dialogue h2 { margin-top: 0; }
   .cta-sur-mesure { flex-wrap: wrap; padding: 18px; }
   .cta-btn { width: 100%; justify-content: center; }
 }
+fieldset.fournisseur-interne { margin: 14px 0; padding: 12px 14px 14px; border-radius: 12px; border: 1px dashed #c9a227; background: #fffbea; }
+fieldset.fournisseur-interne legend { font-weight: 800; padding: 0 6px; display: flex; gap: 8px; align-items: center; }
