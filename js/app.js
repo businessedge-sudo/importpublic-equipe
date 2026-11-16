@@ -1311,6 +1311,9 @@
         <label for="tm">Numéro marchand T-Money</label><input id="tm" inputmode="tel" value="${esc(g.numero_marchand_tmoney || '')}">
         <label for="fl">Numéro marchand Flooz</label><input id="fl" inputmode="tel" value="${esc(g.numero_marchand_flooz || '')}">
         <label for="wa">WhatsApp de contact</label><input id="wa" type="tel" inputmode="tel" value="${esc(g.whatsapp || '')}">
+        <label for="lien-libre">Lien de paiement « montant au choix » (facultatif)</label>
+        <input id="lien-libre" type="text" inputmode="url" value="${esc(g.lien_paiement_libre || '')}" placeholder="https://… (lien où le client saisit le montant)">
+        <div class="aide">Utilisé quand le lien fixe d'une campagne ne correspond pas (commande de plusieurs pièces) ou quand un devis n'a pas de lien. Le client voit le montant exact à saisir.</div>
         ${estAdmin() ? `<label class="case-acceptation" style="margin-top:14px"><input type="checkbox" id="pg-actif" ${g.paiement_en_ligne ? 'checked' : ''}>
           <span><b>Paiement en ligne PayGate activé</b><br><small class="discret">Le client paie depuis sa commande (demande envoyée sur son téléphone). Le paiement est vérifié auprès de PayGate et le reçu est généré tout seul. Cochez seulement quand le compte PayGate est actif et la clé API enregistrée.</small></span></label>` : ''}
         <button class="btn btn-large" style="margin-top:14px">Enregistrer</button>
@@ -1348,6 +1351,7 @@
         const { error } = await sb.from('groupeurs').update({
           nom_marchand: v('nm') || null, numero_marchand_tmoney: v('tm') || null,
           numero_marchand_flooz: v('fl') || null, whatsapp: normTel(v('wa')) || null,
+          lien_paiement_libre: normLienPaiement(v('lien-libre')) || null,
           ...(document.getElementById('pg-actif') ? { paiement_en_ligne: document.getElementById('pg-actif').checked } : {})
         }).eq('id', g.id);
         if (error) { toast(msgErreur(error), 'ko'); return; }
