@@ -194,7 +194,7 @@
           ${estFinance() && aVerifier ? `<a class="btn btn-hero-second" href="#/paiements">${I.carte}Vérifier les paiements</a>` : ''}
         </div>
       </section>
-      ${estAdmin() && !g.numero_marchand_tmoney && !g.numero_marchand_flooz ? `<div class="alerte alerte-alerte">${I.alerte} Aucun numéro marchand n'est configuré : les clients ne peuvent pas payer en ligne.
+      ${estAdmin() && !g.numero_marchand_tmoney && !g.numero_marchand_flooz && !g.whatsapp && !g.paiement_en_ligne ? `<div class="alerte alerte-alerte">${I.alerte} Aucun moyen de paiement n'est configuré : renseignez au moins le WhatsApp de contact.
         <a href="#/reglages">Le configurer</a></div>` : ''}
       <div class="tuiles">
         ${estFinance() ? `<a class="tuile orange" href="#/paiements"><span class="tuile-ico">${I.carte}</span><b>${aVerifier}</b><span>Paiements à vérifier</span></a>` : ''}
@@ -397,7 +397,7 @@
           ${c.id && estAdmin() ? `<button type="button" class="btn btn-lien btn-petit btn-supprimer" id="supprimer-campagne">🗑 Supprimer la campagne</button>` : ''}
         </div>
         ${['quota_atteint', 'commandee', 'entrepot_chine', 'en_transit', 'arrivee'].includes(c.statut) ? blocRetard() : ''}
-        ${c.id && c.statut !== 'brouillon' ? blocDouane(c.frais_douane_unitaire, true) : ''}
+        ${c.id && c.statut !== 'brouillon' ? blocDouane(c.frais_douane_unitaire, true, c.douane_annoncee_le) : ''}
         ${['ouverte', 'brouillon'].includes(c.statut) ? `<div class="bloc-delai-eq">
             <b>Clôture : ${esc(date(c.date_cloture, true))}</b> <span class="discret">(${esc(joursRestants(c.date_cloture))})</span>
             <div class="boutons"><button type="button" class="btn btn-second btn-petit" data-prolonger="7">+7 jours</button>
@@ -449,7 +449,7 @@
         </div>
         <label for="lienpay">Lien de paiement (facultatif)</label>
         <input id="lienpay" type="text" inputmode="url" value="${esc(c.lien_paiement || '')}" placeholder="https://…">
-        <div class="aide">Le lien de paiement généré pour ce produit. Il est envoyé au client avec sa commande et ses relances, et affiché sur sa commande (bouton « Payer en ligne »).</div>
+        <div class="aide">Le lien Monniz à montant fixe, au prix d'une pièce. Il est envoyé aux clients qui commandent 1 pièce (message, relances, bouton « Payer en ligne »). Au-delà d'une pièce, le client paie avec notre aide sur WhatsApp.</div>
         <label for="variantes">Variantes (facultatif)</label>
         <textarea id="variantes" rows="3" placeholder="Une caractéristique par ligne, options séparées par des virgules&#10;Pointure : 40, 41, 42, 43&#10;Couleur : Noir, Blanc">${esc((c.variantes || []).map((v) => `${v.nom} : ${(v.options || []).join(', ')}`).join('\n'))}</textarea>
         <div class="variantes-raccourcis">${[
@@ -921,7 +921,7 @@
           <button class="btn" id="rembourser-dem">Marquer comme remboursé</button>` : ''}
         <div id="zone-wa"></div>
         ${['payee', 'commandee', 'entrepot_chine', 'en_transit', 'arrivee'].includes(d.statut) ? blocRetard() : ''}
-        ${['payee', 'commandee', 'entrepot_chine', 'en_transit', 'arrivee', 'livree'].includes(d.statut) ? blocDouane(d.frais_douane, false) : ''}
+        ${['payee', 'commandee', 'entrepot_chine', 'en_transit', 'arrivee', 'livree'].includes(d.statut) ? blocDouane(d.frais_douane, false, d.douane_annoncee_le) : ''}
       </div>
       ${blocDocs}
       ${opsDemande.html}
@@ -1202,16 +1202,18 @@
     return /^https:\/\/[^\s]+\.[^\s]+$/.test(v) ? v : false;
   }
 
-  function blocDouane(valeur, campagne) {
+  function blocDouane(valeur, campagne, annonceLe) {
     return `<form class="carte" id="form-douane">
       <h2>Frais de douane</h2>
+      ${annonceLe ? `<div class="alerte alerte-ok">${window.ICO.coche} ${campagne ? 'Clients informés' : 'Client informé'} le ${esc(date(annonceLe, true))} : vous pouvez cocher « Dédouanement terminé ».</div>`
+        : `<div class="alerte alerte-alerte">À faire avant « Dédouanement terminé » : enregistrer le montant, puis « Informer ${campagne ? 'les clients' : 'le client'} ». Le message leur donne le montant à prévoir et leur propose la livraison à domicile.</div>`}
       <p class="discret">${campagne ? 'Montant par unité, le même pour tous les clients de la campagne.' : 'Montant total pour ce colis.'}
         Il est indiqué au client à l'arrivée du colis (message et bon de retrait) et encaissé au retrait.</p>
       <div class="rangee"><div><label for="douane">${campagne ? 'Douane par unité (F)' : 'Douane (F)'}</label>
         <input id="douane" type="number" inputmode="numeric" min="0" value="${valeur == null ? '' : esc(valeur)}" placeholder="Ex. : 1500"></div></div>
       <div class="boutons"><button class="btn">Enregistrer</button>
         <button type="button" class="btn btn-second" id="douane-informer">Informer ${campagne ? 'les clients' : 'le client'}</button></div>
-      <p class="aide">« Informer » envoie le montant aux clients dont le colis est attendu ou déjà arrivé. Inutile si vous l'enregistrez avant l'arrivée : le message d'arrivée le contient déjà.</p>
+      <p class="aide">« Informer » envoie à chaque client payé le montant à prévoir pour son colis et lui propose la livraison à domicile. Si vous modifiez le montant ensuite, il faudra informer à nouveau.</p>
     </form>`;
   }
   function brancherDouane(campagneId, demandeId) {
@@ -1226,15 +1228,17 @@
           ? await sb.from('campagnes').update({ frais_douane_unitaire: val }).eq('id', campagneId)
           : await sb.from('demandes').update({ frais_douane: val }).eq('id', demandeId);
         if (e) { toast(msgErreur(e), 'ko'); return; }
-        toast('Frais de douane enregistrés');
+        toast('Frais de douane enregistrés. Cliquez maintenant « Informer ».'); router();
       });
     });
     document.getElementById('douane-informer').addEventListener('click', (ev) => {
-      if (!confirm('Envoyer le montant des frais de douane aux clients concernés ?')) return;
+      if (document.getElementById('douane').value.trim() === '') { toast('Renseignez et enregistrez d\'abord le montant', 'ko'); return; }
+      if (!confirm('Envoyer le montant des frais de douane et la proposition de livraison aux clients ?')) return;
       occupe(ev.currentTarget, async () => {
         const { data, error: e } = await sb.rpc('annoncer_douane', { p_campagne: campagneId, p_demande: demandeId });
         if (e) { toast(msgErreur(e), 'ko'); return; }
-        toast(data ? `${data} client${data > 1 ? 's' : ''} informé${data > 1 ? 's' : ''}` : 'Aucun colis en cours pour l\'instant');
+        toast(data ? `${data} client${data > 1 ? 's' : ''} informé${data > 1 ? 's' : ''}` : 'Aucune commande payée pour l\'instant');
+        router();
       });
     });
   }
@@ -1375,9 +1379,6 @@
         <label for="tm">Numéro marchand T-Money</label><input id="tm" inputmode="tel" value="${esc(g.numero_marchand_tmoney || '')}">
         <label for="fl">Numéro marchand Flooz</label><input id="fl" inputmode="tel" value="${esc(g.numero_marchand_flooz || '')}">
         <label for="wa">WhatsApp de contact</label><input id="wa" type="tel" inputmode="tel" value="${esc(g.whatsapp || '')}">
-        <label for="lien-libre">Lien de paiement « montant au choix » (facultatif)</label>
-        <input id="lien-libre" type="text" inputmode="url" value="${esc(g.lien_paiement_libre || '')}" placeholder="https://… (lien où le client saisit le montant)">
-        <div class="aide">Utilisé quand le lien fixe d'une campagne ne correspond pas (commande de plusieurs pièces) ou quand un devis n'a pas de lien. Le client voit le montant exact à saisir.</div>
         ${estAdmin() ? `<label class="case-acceptation" style="margin-top:14px"><input type="checkbox" id="pg-actif" ${g.paiement_en_ligne ? 'checked' : ''}>
           <span><b>Paiement en ligne PayGate activé</b><br><small class="discret">Le client paie depuis sa commande (demande envoyée sur son téléphone). Le paiement est vérifié auprès de PayGate et le reçu est généré tout seul. Cochez seulement quand le compte PayGate est actif et la clé API enregistrée.</small></span></label>` : ''}
         <button class="btn btn-large" style="margin-top:14px">Enregistrer</button>
@@ -1415,7 +1416,6 @@
         const { error } = await sb.from('groupeurs').update({
           nom_marchand: v('nm') || null, numero_marchand_tmoney: v('tm') || null,
           numero_marchand_flooz: v('fl') || null, whatsapp: normTel(v('wa')) || null,
-          lien_paiement_libre: normLienPaiement(v('lien-libre')) || null,
           ...(document.getElementById('pg-actif') ? { paiement_en_ligne: document.getElementById('pg-actif').checked } : {})
         }).eq('id', g.id);
         if (error) { toast(msgErreur(error), 'ko'); return; }
