@@ -420,6 +420,7 @@
             <div class="actions-ligne">${badge(o.confirmation === 'en_attente_client' && o.statut === 'en_attente_paiement' ? 'en_attente_client' : o.statut)}
               ${o.statut === 'payee' && ['arrivee', 'terminee'].includes(c.statut) && !colisDe(o) ? `<button class="btn btn-ok btn-petit" data-livrer="${o.id}">Livré</button>` : ''}
               ${o.statut === 'a_rembourser' && estFinance() ? `<button class="btn btn-second btn-petit" data-rembourser="${o.id}">Remboursé</button>` : ''}
+              ${o.statut === 'en_attente_paiement' && estFinance() ? `<button class="btn btn-ok btn-petit" data-approuver-cmd="${o.id}">Approuver le paiement</button>` : ''}
               ${o.statut === 'en_attente_paiement' ? `<button class="btn btn-ko btn-petit" data-annuler="${o.id}">Annuler</button>` : ''}
               ${o.statut === 'payee' && estFinance() ? `<button class="btn btn-ko btn-petit" data-retirer-cmd="${o.id}">Retirer</button>` : ''}
             </div></div>`).join('') : '<p class="discret">Aucune commande pour le moment.</p>'}</div>
@@ -655,6 +656,11 @@
         if (error) toast(msgErreur(error), 'ko'); else { toast('Commande annulée'); router(); }
       });
     }));
+    vue.querySelectorAll('[data-approuver-cmd]').forEach((b) => b.addEventListener('click', async () => {
+      const o = commandes.find((x) => x.id === b.dataset.approuverCmd);
+      const { data: decl } = await sb.from('paiements').select('operateur,reference_externe,numero_payeur').eq('commande_id', o.id).eq('statut', 'initie').maybeSingle();
+      dialogueApprobation({ commandeId: o.id, montant: o.montant_total, nom: o.profils.nom_complet, declare: decl, apres: router });
+    }));
     vue.querySelectorAll('[data-retirer-cmd]').forEach((b) => b.addEventListener('click', () => {
       const motif = prompt('Retirer cette commande payée ? Elle passera « à rembourser » et le client recevra un avis d\'annulation.\nMotif communiqué au client :', '');
       if (motif === null) return;
@@ -795,7 +801,7 @@
     const chiffrage = ops.aideChiffrage(d);
     const [{ data: docs }, { data: paies }, { data: source }] = await Promise.all([
       sb.from('documents').select('id,numero,type,total,remplace,cree_le').eq('demande_id', d.id).order('cree_le', { ascending: false }),
-      sb.from('paiements').select('id,montant,statut,operateur,numero_payeur').eq('demande_id', d.id),
+      sb.from('paiements').select('id,montant,statut,operateur,numero_payeur,reference_externe').eq('demande_id', d.id),
       estSupport() ? sb.from('demandes_sources').select('lien,note,image_path,maj_le,profils(nom_complet)').eq('demande_id', d.id).maybeSingle() : Promise.resolve({ data: null })
     ]);
     const src = source || {};
@@ -894,6 +900,7 @@
         <div class="boutons">
           ${suivant ? `<button class="btn" id="avancer">${esc(ACTION[suivant])}</button>` : ''}
           ${!['livree', 'annulee', 'refusee'].includes(d.statut) ? `<button class="btn btn-ko" id="annuler">Annuler la demande</button>` : ''}
+          ${['devis_envoye', 'acceptee'].includes(d.statut) && estFinance() ? `<button type="button" class="btn btn-ok" id="approuver-demande">Approuver le paiement</button>` : ''}
           ${estAdmin() ? `<button type="button" class="btn btn-lien btn-supprimer" id="supprimer-demande">🗑 Supprimer</button>` : ''}
         </div>
         ${aRembourser.length ? `<div class="alerte alerte-alerte" style="margin-top:10px">Le client avait payé ${fcfa(aRembourser.reduce((t, p) => t + Number(p.montant), 0))} : à rembourser.</div>
@@ -914,6 +921,10 @@
     }
     brancherRetard(null, d.id);
     brancherDouane(null, d.id);
+    const bApD = document.getElementById('approuver-demande');
+    if (bApD) bApD.addEventListener('click', () => dialogueApprobation({
+      demandeId: d.id, montant: d.montant_devis, nom: cl.nom_complet,
+      declare: (paies || []).find((p) => p.statut === 'initie'), apres: router }));
     const bSupD = document.getElementById('supprimer-demande');
     if (bSupD) bSupD.addEventListener('click', () => {
       const saisie = prompt(`Supprimer définitivement cette demande ?\n\nElle disparaît aussi pour le client, avec ses devis. C'est irréversible. Impossible si un paiement a été reçu : annulez-la plutôt.\n\nTapez SUPPRIMER pour confirmer :`);
@@ -1129,6 +1140,45 @@
   // Retard de livraison : message à tous les clients payés de la campagne (ou au client de la demande)
   // Frais de douane : par unité pour une campagne (les mêmes pour tous), montant total pour une demande sur mesure.
   // Ils sont indiqués au client dans le message d'arrivée du colis et sur son bon de retrait.
+  // Approuver un paiement reçu : déclaré par le client ou reçu ailleurs (Monniz, WhatsApp, espèces).
+  // Le paiement passe « confirmé » : commande ou demande payée, reçu envoyé au client, suite du circuit.
+  function dialogueApprobation({ commandeId, demandeId, montant, nom, declare, apres }) {
+    const ops = [['tmoney', 'T-Money'], ['flooz', 'Flooz'], ['monniz', 'Monniz (lien de paiement)'], ['especes', 'Espèces'], ['virement', 'Virement']];
+    const dlg = document.createElement('dialog');
+    dlg.className = 'dialogue';
+    dlg.innerHTML = `<form method="dialog" id="form-approbation">
+      <h2>Approuver le paiement</h2>
+      <p>${esc(nom || 'Client')} · montant dû : <b>${fcfa(montant)}</b></p>
+      ${declare ? `<div class="alerte alerte-alerte">Le client a déclaré un paiement${declare.reference_externe ? ` (réf. <b>${esc(declare.reference_externe)}</b>)` : ''}. Vérifiez qu'il apparaît bien sur votre compte avant d'approuver.</div>` : ''}
+      <label for="ap-op">Reçu par</label>
+      <select id="ap-op">${ops.map(([v, l]) => `<option value="${v}" ${declare && declare.operateur === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
+      <label for="ap-ref">Référence de la transaction (facultatif)</label>
+      <input id="ap-ref" autocomplete="off" value="${esc(declare && declare.reference_externe || '')}" placeholder="Celle du SMS ou de Monniz">
+      <label for="ap-num">Numéro qui a payé (facultatif)</label>
+      <input id="ap-num" type="tel" inputmode="tel" value="${esc(declare && declare.numero_payeur || '')}">
+      <label class="case-acceptation" style="margin-top:12px"><input type="checkbox" id="ap-ok" required>
+        <span>J'ai vérifié que les ${fcfa(montant)} sont bien arrivés sur notre compte.</span></label>
+      <div class="boutons" style="margin-top:14px"><button class="btn btn-ok" value="ok">Approuver</button><button class="btn btn-second" value="annuler" formnovalidate>Annuler</button></div>
+      <p class="aide">Le client reçoit aussitôt son reçu, et la commande passe à l'étape suivante.</p>
+    </form>`;
+    document.body.appendChild(dlg);
+    dlg.addEventListener('close', () => dlg.remove());
+    dlg.querySelector('form').addEventListener('submit', (ev) => {
+      if (ev.submitter && ev.submitter.value === 'annuler') return;
+      ev.preventDefault();
+      occupe(ev.submitter, async () => {
+        const { error: e } = await sb.rpc('approuver_paiement', {
+          p_commande: commandeId || null, p_demande: demandeId || null, p_montant: montant,
+          p_operateur: dlg.querySelector('#ap-op').value, p_reference: dlg.querySelector('#ap-ref').value, p_numero: dlg.querySelector('#ap-num').value });
+        if (e) { toast(msgErreur(e), 'ko'); return; }
+        dlg.close();
+        toast('Paiement approuvé. Le reçu est envoyé au client.');
+        apres();
+      });
+    });
+    dlg.showModal();
+  }
+
   // Lien de paiement : https obligatoire ; renvoie null si vide, false si invalide
   function normLienPaiement(v) {
     v = String(v || '').trim();

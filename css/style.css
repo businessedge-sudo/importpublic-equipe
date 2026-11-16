@@ -1363,3 +1363,8 @@ body.avec-wa main { padding-bottom: 72px; }
 .paiement-lien .btn { width: 100%; }
 .chat-payer { display: inline-flex; align-items: center; gap: 6px; margin: 4px 0; padding: 8px 14px; border-radius: 999px;
   background: var(--accent); color: #fff !important; font-weight: 800; text-decoration: none !important; }
+
+/* Fenêtre « Approuver le paiement » */
+dialog.dialogue { border: 0; border-radius: 16px; padding: 22px; width: min(460px, calc(100vw - 32px)); box-shadow: 0 20px 60px rgba(0,0,0,.25); background: var(--papier, #fff); color: inherit; }
+dialog.dialogue::backdrop { background: rgba(20, 12, 5, .45); }
+dialog.dialogue h2 { margin-top: 0; }
