@@ -452,7 +452,14 @@
         <div class="aide">Le lien de paiement généré pour ce produit. Il est envoyé au client avec sa commande et ses relances, et affiché sur sa commande (bouton « Payer en ligne »).</div>
         <label for="variantes">Variantes (facultatif)</label>
         <textarea id="variantes" rows="3" placeholder="Une caractéristique par ligne, options séparées par des virgules&#10;Pointure : 40, 41, 42, 43&#10;Couleur : Noir, Blanc">${esc((c.variantes || []).map((v) => `${v.nom} : ${(v.options || []).join(', ')}`).join('\n'))}</textarea>
-        <div class="aide">Le client devra choisir une option pour chaque ligne. Évitez de les modifier une fois des commandes passées.</div>
+        <div class="variantes-raccourcis">${[
+          ['Couleur', 'Couleur : Noir, Blanc'],
+          ['Taille (vêtements)', 'Taille : S, M, L, XL, XXL'],
+          ['Pointure', 'Pointure : 39, 40, 41, 42, 43, 44'],
+          ['Taille (S/M/L)', 'Taille : Petit, Moyen, Grand'],
+          ['Contenance', 'Contenance : 500 ml, 1 L, 2 L'],
+          ['Modèle', 'Modèle : Standard, Premium']].map(([l, v]) => `<button type="button" class="btn btn-second btn-petit" data-variante="${esc(v)}">+ ${l}</button>`).join('')}</div>
+        <div class="aide">Une ligne par caractéristique, autant que vous voulez (ex. une ligne Couleur et une ligne Pointure pour des chaussures). Les boutons ajoutent un modèle de ligne : remplacez les options par les vraies. Le client devra choisir une option par ligne ; pour deux couleurs, il passe deux commandes. Évitez de les modifier une fois des commandes passées.</div>
         <label for="pref">Prix habituel à Lomé (F, facultatif)</label>
         <input id="pref" type="number" inputmode="numeric" min="1" value="${esc(c.prix_reference || '')}" placeholder="Ex. : 29990">
         <div class="aide">C'est l'argument n° 1 : il s'affiche barré, avec « Vous économisez X F ». Mettez un prix que vous avez réellement relevé (boutique, marché, page Facebook d'un vendeur de Lomé) et gardez la preuve (photo, capture).</div>
@@ -550,6 +557,13 @@
       });
     });
 
+    vue.querySelectorAll('[data-variante]').forEach((b) => b.addEventListener('click', () => {
+      const ta = document.getElementById('variantes');
+      const nom = b.dataset.variante.split(':')[0].trim().toLowerCase();
+      if (ta.value.split('\n').some((l) => l.split(':')[0].trim().toLowerCase() === nom)) { toast('Cette caractéristique est déjà dans la liste'); ta.focus(); return; }
+      ta.value = (ta.value.trim() ? ta.value.trim() + '\n' : '') + b.dataset.variante;
+      ta.focus();
+    }));
     if (nouvelle) return;
     sections.brancher();
     brancherRetard(c.id, null);
