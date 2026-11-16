@@ -300,12 +300,10 @@
       `👉 Réservez votre part ici : ${url}`
     ].filter((l) => l !== null).join('\n');
   };
-  async function partagerCampagne(c, code) {
-    const url = lienCampagnePublic(c.id, code);
-    const texte = messagePartage(c, url);
-    if (navigator.share) {
-      try { await navigator.share({ title: c.titre, text: texte }); return; } catch (e) { if (e && e.name === 'AbortError') return; }
-    }
+  // Ouvre directement WhatsApp (application sur téléphone, WhatsApp Desktop ou Web sur ordinateur)
+  // avec le message prêt : on choisit ensuite le contact ou le groupe. Pas de menu de partage du système.
+  function partagerCampagne(c, code) {
+    const texte = messagePartage(c, lienCampagnePublic(c.id, code));
     window.open('https://wa.me/?text=' + encodeURIComponent(texte), '_blank', 'noopener');
   }
   async function copierPartage(c, code) {
