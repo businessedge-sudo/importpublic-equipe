@@ -1370,3 +1370,20 @@ dialog.dialogue::backdrop { background: rgba(20, 12, 5, .45); }
 dialog.dialogue h2 { margin-top: 0; }
 .variantes-raccourcis { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 2px; }
 .btn-partage { margin: 0 0 10px; }
+
+/* Appel à la demande sur mesure, sous les offres */
+.cta-sur-mesure { display: flex; align-items: center; gap: 16px; margin: 22px 0 8px; padding: 20px 22px; border-radius: 20px;
+  background: linear-gradient(120deg, #2b1a0e 0%, #4a2a12 55%, #ff6a13 160%); color: #fff; text-decoration: none;
+  box-shadow: 0 14px 34px rgba(74, 42, 18, .28); transition: transform .15s ease, box-shadow .15s ease; }
+.cta-sur-mesure:hover { transform: translateY(-2px); box-shadow: 0 18px 40px rgba(74, 42, 18, .34); }
+.cta-ico { flex: none; width: 52px; height: 52px; border-radius: 16px; background: rgba(255,255,255,.14); display: flex; align-items: center; justify-content: center; }
+.cta-ico svg { width: 26px; height: 26px; color: #ffb37a; }
+.cta-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.cta-texte b { font-size: 1.15rem; line-height: 1.25; }
+.cta-texte span { color: rgba(255,255,255,.82); font-size: .92rem; line-height: 1.4; }
+.cta-btn { flex: none; background: var(--accent); color: #fff; white-space: nowrap; }
+.cta-btn svg { width: 18px; height: 18px; margin-left: 4px; }
+@media (max-width: 640px) {
+  .cta-sur-mesure { flex-wrap: wrap; padding: 18px; }
+  .cta-btn { width: 100%; justify-content: center; }
+}
