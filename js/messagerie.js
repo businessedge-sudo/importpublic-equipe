@@ -21,11 +21,18 @@
     };
     // Texte → HTML sûr, liens cliquables, retours à la ligne
     // Les liens WhatsApp (wa.me) deviennent un bouton lisible au lieu d'une longue adresse
-    const enrichir = (t) => esc(t)
-      .replace(/(https?:\/\/[^\s<]+[^\s<.,;:!?)\]'"])/g, (u) => /^https:\/\/wa\.me\//.test(u)
+    const enrichir = (t) => {
+      // « Payer en ligne : <lien> » devient un bouton de paiement ; les liens wa.me un bouton WhatsApp
+      const payer = [];
+      let h = esc(t).replace(/Payer en ligne : (https:\/\/[^\s<]+[^\s<.,;:!?)\]'"])/g, (m, u) => {
+        payer.push(u); return '\u0001' + (payer.length - 1) + '\u0001';
+      });
+      h = h.replace(/(https?:\/\/[^\s<]+[^\s<.,;:!?)\]'"])/g, (u) => /^https:\/\/wa\.me\//.test(u)
         ? `<a class="chat-wa" href="${u}" target="_blank" rel="noopener nofollow">💬 Écrire sur WhatsApp</a>`
-        : `<a href="${u}" target="_blank" rel="noopener nofollow">${u}</a>`)
-      .replace(/\n/g, '<br>');
+        : `<a href="${u}" target="_blank" rel="noopener nofollow">${u}</a>`);
+      h = h.replace(/\u0001(\d+)\u0001/g, (m, k) => `<a class="chat-payer" href="${payer[k]}" target="_blank" rel="noopener nofollow">💳 Payer en ligne</a>`);
+      return h.replace(/\n/g, '<br>');
+    };
 
     // Monte une conversation dans `zone`. Renvoie le canal temps réel (à retirer en quittant la page).
     async function monter(zone, clientId, monId, { noms = {}, vide = '' } = {}) {

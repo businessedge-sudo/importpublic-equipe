@@ -429,6 +429,8 @@
       <form class="carte" id="form-c">
         <h2>${nouvelle ? 'Nouvelle campagne' : 'Modifier'}</h2>
         <label for="titre">Produit</label><input id="titre" required value="${esc(c.titre)}" placeholder="Ex. : Montre connectée T800 Ultra">
+        <label for="accroche">Phrase d'accroche (facultatif)</label><input id="accroche" maxlength="140" value="${esc(c.accroche || '')}" placeholder="Ex. : Ne laissez plus la poussière abîmer vos habits.">
+        <div class="aide">Affichée en évidence sous le titre, sur la page de la campagne et sur sa vignette. Une phrase courte qui parle du problème réglé, pas du produit.</div>
         <label for="desc">Description</label><textarea id="desc" placeholder="Caractéristiques, couleurs, garantie…">${esc(c.description || '')}</textarea>
         <label for="img">Photos du produit <small class="discret">(jusqu'à 10 · la 1re est la couverture)</small></label>
         <div class="photos-edit" id="photos-edit"></div>
@@ -444,6 +446,9 @@
           <div><label for="quota">Quota (unités)</label><input id="quota" type="number" inputmode="numeric" min="1" required value="${esc(c.quota)}"></div>
           <div><label for="ft">Transport/unité si HT</label><input id="ft" type="number" inputmode="numeric" min="0" value="${esc(c.frais_transport_unitaire || '')}"></div>
         </div>
+        <label for="lienpay">Lien de paiement (facultatif)</label>
+        <input id="lienpay" type="text" inputmode="url" value="${esc(c.lien_paiement || '')}" placeholder="https://…">
+        <div class="aide">Le lien de paiement généré pour ce produit. Il est envoyé au client avec sa commande et ses relances, et affiché sur sa commande (bouton « Payer en ligne »).</div>
         <label for="variantes">Variantes (facultatif)</label>
         <textarea id="variantes" rows="3" placeholder="Une caractéristique par ligne, options séparées par des virgules&#10;Pointure : 40, 41, 42, 43&#10;Couleur : Noir, Blanc">${esc((c.variantes || []).map((v) => `${v.nom} : ${(v.options || []).join(', ')}`).join('\n'))}</textarea>
         <div class="aide">Le client devra choisir une option pour chaque ligne. Évitez de les modifier une fois des commandes passées.</div>
@@ -525,8 +530,11 @@
           frais_transport_unitaire: val('ft') ? parseInt(val('ft'), 10) : null,
           prix_reference: val('pref') ? parseInt(val('pref'), 10) : null,
           quota: parseInt(val('quota'), 10), date_cloture: new Date(val('cloture')).toISOString(), mode_transport: val('mode'),
-          variantes: lireVariantes(val('variantes'))
+          variantes: lireVariantes(val('variantes')),
+          accroche: val('accroche').trim() || null,
+          lien_paiement: normLienPaiement(val('lienpay'))
         };
+        if (ligne.lien_paiement === false) { toast('Le lien de paiement doit commencer par https://', 'ko'); return; }
         let r;
         if (nouvelle) {
           ligne.statut = val('pub');
@@ -863,6 +871,8 @@
         ${chiffrage.html}
         <label for="montant">Prix total hors taxes, transport jusqu'à Lomé inclus (F CFA)</label>
         <input id="montant" type="number" inputmode="numeric" min="1" required value="${esc(d.montant_devis || '')}">
+        <label for="lienpay-d">Lien de paiement (facultatif)</label>
+        <input id="lienpay-d" type="text" inputmode="url" value="${esc(d.lien_paiement || '')}" placeholder="https://… (lien généré pour ce montant)">
         <label for="note">Message au client (affiché sur le devis)</label>
         <textarea id="note" placeholder="Ex. : Modèle disponible en noir, livraison aérien sous 3 semaines.">${esc(d.note_devis || '')}</textarea>
         <fieldset class="relances-choix"><legend>Relances si le client ne répond pas</legend>
@@ -996,6 +1006,7 @@
         const montant = parseInt(document.getElementById('montant').value, 10);
         const { error } = await sb.from('demandes').update({
           montant_devis: montant, note_devis: document.getElementById('note').value.trim() || null, statut: 'devis_envoye',
+          lien_paiement: normLienPaiement(document.getElementById('lienpay-d').value) || null,
           chiffrage: chiffrage.lire(),
           relances_prevues: Number(document.getElementById('rl-nb').value),
           relance_intervalle_h: Number(document.getElementById('rl-int').value),
@@ -1118,6 +1129,15 @@
   // Retard de livraison : message à tous les clients payés de la campagne (ou au client de la demande)
   // Frais de douane : par unité pour une campagne (les mêmes pour tous), montant total pour une demande sur mesure.
   // Ils sont indiqués au client dans le message d'arrivée du colis et sur son bon de retrait.
+  // Lien de paiement : https obligatoire ; renvoie null si vide, false si invalide
+  function normLienPaiement(v) {
+    v = String(v || '').trim();
+    if (!v) return null;
+    if (/^http:\/\//i.test(v)) v = 'https://' + v.slice(7);
+    if (!/^https:\/\//i.test(v)) v = 'https://' + v;
+    return /^https:\/\/[^\s]+\.[^\s]+$/.test(v) ? v : false;
+  }
+
   function blocDouane(valeur, campagne) {
     return `<form class="carte" id="form-douane">
       <h2>Frais de douane</h2>
