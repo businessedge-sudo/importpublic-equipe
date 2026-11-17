@@ -920,7 +920,7 @@
     const devis = (docs || []).find((x) => x.type === 'devis' && !x.remplace);
     const aRembourser = d.statut === 'annulee' ? (paies || []).filter((p) => p.statut === 'confirme') : [];
     const prenom = (cl.nom_complet || '').split(' ')[0] || '';
-    const texteWa = (n) => `Bonjour ${prenom},\n\nNous revenons vers vous au sujet de votre devis${devis ? ' n° ' + devis.numero : ''} pour « ${(d.description || '').slice(0, 60)} », d'un montant de ${fcfa(d.montant_devis)} hors taxes. Les frais de douane et de livraison vous seront communiqués une fois votre colis arrivé à Lomé.\n\n`
+    const texteWa = (n) => `Bonjour ${prenom},\n\nNous revenons vers vous au sujet de votre devis${devis ? ' n° ' + devis.numero : ''} pour « ${(d.description || '').slice(0, 60)} », d'un montant de ${fcfa(d.montant_devis)}${d.type_prix === 'TTC' ? ' tout compris (transport et douane inclus).' : ' hors taxes. Les frais de douane et de livraison vous seront communiqués une fois votre colis arrivé à Lomé.'}\n\n`
       + `Vous pouvez le consulter, nous poser vos questions ou procéder au paiement depuis votre page de suivi ci-dessous, ou simplement en nous répondant ici.\n\n`
       + `${n >= 4 ? 'Sans nouvelle de votre part, nous clôturerons cette demande dans quelques jours.\n\n' : ''}Merci et à bientôt,\n\nL'équipe Import Public`;
     const opt = (vals, cur, fmt) => vals.map((v) => `<option value="${v}"${Number(cur) === v ? ' selected' : ''}>${fmt(v)}</option>`).join('');
@@ -958,7 +958,8 @@
         ${estSupport() && cl.telephone ? `<div class="cw-transmettre">
           ${cl.via_whatsapp ? '<p class="alerte alerte-alerte" style="margin:10px 0 8px">Client WhatsApp : transmettez-lui chaque message sur WhatsApp.</p>' : ''}
           <button type="button" class="btn btn-wa btn-petit" id="cw-transmettre-d">Envoyer le dernier message sur WhatsApp</button>
-          <button type="button" class="btn btn-second btn-petit" id="cw-lien-d">Copier son lien de suivi</button></div>` : ''}
+          <button type="button" class="btn btn-second btn-petit" id="cw-lien-d">Copier son lien de suivi</button>
+          <p class="aide">Le message part avec son lien de suivi${cl.email ? '' : ', l\'invitation à créer son compte gratuitement et le lien du site'}. Vous le relisez dans WhatsApp avant d'envoyer.</p></div>` : ''}
       </div>
       ${blocSource}
       ${estSupport() ? `<div class="carte"><h2>Discussion avec ${esc(cl.nom_complet || 'le client')}</h2>
@@ -968,7 +969,10 @@
       ${peutChiffrer ? `<form class="carte" id="form-devis">
         <h2>${d.statut === 'nouvelle' ? 'Envoyer un prix' : 'Modifier le devis'}</h2>
         ${chiffrage.html}
-        <label for="montant">Prix total hors taxes, transport jusqu'à Lomé inclus (F CFA)</label>
+        <label for="tp-d">Type de prix</label>
+        <select id="tp-d"><option value="HT" ${d.type_prix !== 'TTC' ? 'selected' : ''}>Hors taxes : douane payée à l'arrivée</option>
+          <option value="TTC" ${d.type_prix === 'TTC' ? 'selected' : ''}>Tout compris (TTC) : douane incluse</option></select>
+        <label for="montant">Prix total, transport jusqu'à Lomé inclus (F CFA)</label>
         <input id="montant" type="number" inputmode="numeric" min="1" required value="${esc(d.montant_devis || '')}">
         <label for="lienpay-d">Lien de paiement (facultatif)</label>
         <input id="lienpay-d" type="text" inputmode="url" value="${esc(d.lien_paiement || '')}" placeholder="https://… (lien généré pour ce montant)">
@@ -1000,7 +1004,7 @@
           <button class="btn" id="rembourser-dem">Marquer comme remboursé</button>` : ''}
         <div id="zone-wa"></div>
         ${['payee', 'commandee', 'entrepot_chine', 'en_transit', 'arrivee'].includes(d.statut) ? blocRetard() : ''}
-        ${['payee', 'commandee', 'entrepot_chine', 'en_transit', 'arrivee', 'livree'].includes(d.statut) ? blocDouane(d.frais_douane, false, d.douane_annoncee_le) : ''}
+        ${['payee', 'commandee', 'entrepot_chine', 'en_transit', 'arrivee', 'livree'].includes(d.statut) ? (d.type_prix === 'TTC' ? '<div class="carte"><h2>Frais de douane</h2><p class="discret">Devis tout compris : la douane est incluse dans le prix. Rien à annoncer ni à encaisser à l\'arrivée.</p></div>' : blocDouane(d.frais_douane, false, d.douane_annoncee_le)) : ''}
       </div>
       ${blocDocs}
       ${opsDemande.html}
@@ -1115,7 +1119,7 @@
       occupe(ev.target.querySelector('button'), async () => {
         const montant = parseInt(document.getElementById('montant').value, 10);
         const { error } = await sb.from('demandes').update({
-          montant_devis: montant, note_devis: document.getElementById('note').value.trim() || null, statut: 'devis_envoye',
+          montant_devis: montant, type_prix: document.getElementById('tp-d').value, note_devis: document.getElementById('note').value.trim() || null, statut: 'devis_envoye',
           lien_paiement: normLienPaiement(document.getElementById('lienpay-d').value) || null,
           chiffrage: chiffrage.lire(),
           relances_prevues: Number(document.getElementById('rl-nb').value),
@@ -1270,7 +1274,7 @@
     texte += `\n\n📲 Suivez votre commande ici, à tout moment :\n${lienSuiviUrl(t)}`;
     texte += aUnAcces
       ? `\n\n💬 Retrouvez aussi tous vos messages dans votre espace : ${cfg.urlSite}/#/messages`
-      : `\n\n👉 Créez votre compte Import Public en 1 minute pour commander vous-même et être prévenu automatiquement à chaque étape (votre historique est déjà dedans) :\n${lienSuiviUrl(t)}?acces=1`;
+      : `\n\n👉 Créez votre compte Import Public, c'est gratuit et ça prend 1 minute. Vous pourrez commander vous-même et vous serez prévenu automatiquement à chaque étape (votre historique est déjà dedans) :\n${lienSuiviUrl(t)}?acces=1\n\n🛍️ Découvrez aussi nos achats groupés en cours : ${cfg.urlSite}`;
     texte += `\n\nL'équipe Import Public`;
     window.open(waLien(client.telephone, texte), '_blank', 'noopener');
   }
@@ -1284,7 +1288,7 @@
   async function vueClientWhatsApp(_, params) {
     if (!estSupport()) { vue.innerHTML = '<div class="carte vide">Réservé à l\'administrateur et aux assistants.</div>'; return; }
     const type0 = params.get('type') === 'campagne' ? 'campagne' : 'demande';
-    const { data: camps } = await sb.from('campagnes').select('id,titre,prix_unitaire,variantes,image_url').eq('statut', 'ouverte').order('date_cloture');
+    const { data: camps } = await sb.from('campagnes').select('id,titre,prix_unitaire,variantes,image_url,type_prix').eq('statut', 'ouverte').order('date_cloture');
     const regions = window.IA.listeRegions ? window.IA.listeRegions('TG') : '';
     vue.innerHTML = `
       <p><a href="#/${type0 === 'campagne' ? 'campagnes' : 'demandes'}">← Retour</a></p>
@@ -1379,7 +1383,7 @@
       document.getElementById('cw-variantes').innerHTML = vs.map((v, i) => `<label for="cw-v${i}">${esc(v.nom)}</label>
         <select id="cw-v${i}" data-nom="${esc(v.nom)}" required><option value="">Choisir…</option>${(v.options || []).map((o) => `<option>${esc(o)}</option>`).join('')}</select>`).join('');
       const q = Math.max(1, parseInt(document.getElementById('cw-qte-c').value, 10) || 1);
-      document.getElementById('cw-total').textContent = c ? `Total : ${fcfa(c.prix_unitaire * q)} hors taxes` : '';
+      document.getElementById('cw-total').textContent = c ? `Total : ${fcfa(c.prix_unitaire * q)} ${c.type_prix === 'TTC' ? 'tout compris' : 'hors taxes'}` : '';
     };
     const sel = document.getElementById('cw-camp');
     if (sel) { sel.addEventListener('change', majCampagne); document.getElementById('cw-qte-c').addEventListener('input', majCampagne); majCampagne(); }

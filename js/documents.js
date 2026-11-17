@@ -81,7 +81,7 @@
       if (doc.type === 'devis') {
         const moyens = [em.tmoney && `T-Money : <b>${esc(em.tmoney)}</b>`, em.flooz && `Flooz : <b>${esc(em.flooz)}</b>`].filter(Boolean).join(' · ');
         pied = `<div class="doc-note"><b>Comment payer ?</b> Acceptez le devis dans votre compte Import Public, puis payez par Mobile Money${moyens ? ' (' + moyens + (em.marchand ? ', au nom de ' + esc(em.marchand) : '') + ')' : ''}.
-          Nous passons commande dès que votre paiement est validé. Le prix comprend l'achat et le transport jusqu'à Lomé. Les frais de douane et de livraison vous seront communiqués une fois votre colis arrivé à Lomé.</div>`;
+          Nous passons commande dès que votre paiement est validé. ${c.type_prix === 'TTC' ? 'Le prix comprend l\'achat, le transport jusqu\'à Lomé et le dédouanement. Seule la livraison à domicile, si vous la choisissez, est en plus.' : 'Le prix comprend l\'achat et le transport jusqu\'à Lomé. Les frais de douane et de livraison vous seront communiqués une fois votre colis arrivé à Lomé.'}</div>`;
       } else if (doc.type === 'recu') {
         pied = `<div class="doc-note">Merci pour votre confiance. Conservez ce reçu : il prouve votre paiement. Vous serez prévenu à chaque étape, jusqu'au retrait de votre colis.</div>`;
       } else if (doc.type === 'annulation') {
@@ -107,7 +107,7 @@
         <table class="doc-lignes"><thead><tr><th>Désignation</th><th>Qté</th><th>Prix unitaire</th><th>Montant</th></tr></thead>
           <tbody>${lignes.map((l) => `<tr><td>${esc(l.libelle || '')}${l.detail ? `<small>${esc(l.detail)}</small>` : ''}</td>
             <td>${esc(String(l.quantite ?? ''))}</td><td>${l.prix_unitaire != null ? fcfa(l.prix_unitaire) : ''}</td><td>${l.montant != null ? fcfa(l.montant) : ''}</td></tr>`).join('')}</tbody></table>
-        <div class="doc-total"><span>${esc(T.total)}</span><b>${fcfa(doc.total)}</b></div>
+        <div class="doc-total"><span>${esc(doc.type === 'devis' && c.type_prix === 'TTC' ? 'Total à payer (tout compris)' : T.total)}</span><b>${fcfa(doc.total)}</b></div>
         ${details ? `<div class="doc-infos">${details}</div>` : ''}
         ${c.note ? `<div class="doc-message"><small>Message de l'équipe</small><p>${esc(c.note)}</p></div>` : ''}
         ${pied}
