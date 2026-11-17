@@ -1,6 +1,6 @@
 // Import Public : messagerie client ↔ équipe (texte, émojis, photos, fichiers ; pas de messages vocaux).
 // Le client ne peut ni modifier ni supprimer ses messages (la base le refuse).
-// Un membre de l'équipe peut modifier ou supprimer SES messages : ils restent marqués « modifié » / « supprimé ».
+// Un membre de l'équipe peut modifier ou supprimer SES messages (l'administrateur : tous ceux de l'équipe) : ils restent marqués « modifié » / « supprimé ».
 (function () {
   const EMOJIS = ['😀', '😊', '😂', '🥰', '😍', '😎', '🤔', '😅', '😢', '😡', '🙏', '👍', '👎', '👌', '👏', '💪',
                   '🤝', '🙌', '❤️', '🔥', '✅', '❌', '⚠️', '⏳', '📦', '🚚', '✈️', '🚢', '🛍️', '💰', '💵', '📱',
@@ -64,6 +64,8 @@
       const panneauEmo = zone.querySelector('.chat-emojis');
       const apercu = zone.querySelector('.chat-apercu');
       const msgs = new Map();
+      // L'administrateur peut modifier ou supprimer tous les messages de l'équipe, y compris les messages automatiques
+      const admin = equipe ? !!(await sb.rpc('est_admin')).data : false;
       const urls = new Map();
       let piece = null;
 
@@ -100,7 +102,7 @@
       }
 
       function htmlMessage(m) {
-        const modifiable = equipe && m.de_equipe && m.auteur_id === monId && !m.supprime;
+        const modifiable = equipe && m.de_equipe && (admin || m.auteur_id === monId) && !m.supprime;
         let corps;
         if (m.supprime) corps = `<p class="msg-supprime">Message supprimé</p>`;
         else {
