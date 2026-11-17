@@ -360,7 +360,7 @@
   }
 
   async function vueCampagne(id) {
-    let c = { titre: '', description: '', prix_unitaire: '', prix_reference: '', type_prix: 'TTC', frais_transport_unitaire: '', quota: '',
+    let c = { titre: '', description: '', prix_unitaire: '', prix_reference: '', type_prix: 'HT', frais_transport_unitaire: '', quota: '',
               date_cloture: new Date(Date.now() + 7 * 86400000).toISOString(), mode_transport: 'aerien', statut: 'brouillon', image_url: '' };
     let commandes = [];
     if (id !== 'nouvelle') {
@@ -423,7 +423,7 @@
         <button class="btn" style="margin-top:10px">Enregistrer le fournisseur</button>
           </form>` : ''}
         ${['quota_atteint', 'commandee', 'entrepot_chine', 'en_transit', 'arrivee'].includes(c.statut) ? blocRetard() : ''}
-        ${c.id && c.statut !== 'brouillon' ? blocDouane(c.frais_douane_unitaire, true, c.douane_annoncee_le) : ''}
+        ${c.id && c.statut !== 'brouillon' ? (c.type_prix === 'TTC' ? '<div class="carte"><h2>Frais de douane</h2><p class="discret">Campagne tout compris : la douane est incluse dans le prix. Rien à annoncer ni à encaisser à l\'arrivée.</p></div>' : blocDouane(c.frais_douane_unitaire, true, c.douane_annoncee_le)) : ''}
         ${['ouverte', 'brouillon'].includes(c.statut) ? `<div class="bloc-delai-eq">
             <b>Clôture : ${esc(date(c.date_cloture, true))}</b> <span class="discret">(${esc(joursRestants(c.date_cloture))})</span>
             <div class="boutons"><button type="button" class="btn btn-second btn-petit" data-prolonger="7">+7 jours</button>
@@ -467,12 +467,13 @@
         <div class="aide">Montrez le produit sous tous ses angles : face, côté, plié, détails, dimensions, emballage. Touchez une photo pour en faire la couverture.</div>
         <div class="rangee">
           <div><label for="prix">Prix unitaire (F)</label><input id="prix" type="number" inputmode="numeric" min="1" required value="${esc(c.prix_unitaire)}"></div>
-          <div><label for="tp">Prix</label><select id="tp"><option value="TTC" ${c.type_prix === 'TTC' ? 'selected' : ''}>Transport inclus (hors taxes)</option>
-            <option value="HT" ${c.type_prix === 'HT' ? 'selected' : ''}>HT (transport à l'arrivée)</option></select></div>
+          <div><label for="tp">Type de prix</label><select id="tp">
+            <option value="HT" ${c.type_prix !== 'TTC' ? 'selected' : ''}>Hors taxes : douane payée à l'arrivée</option>
+            <option value="TTC" ${c.type_prix === 'TTC' ? 'selected' : ''}>Tout compris (TTC) : douane incluse</option></select></div>
         </div>
         <div class="rangee">
           <div><label for="quota">Quota (unités)</label><input id="quota" type="number" inputmode="numeric" min="1" required value="${esc(c.quota)}"></div>
-          <div><label for="ft">Transport/unité si HT</label><input id="ft" type="number" inputmode="numeric" min="0" value="${esc(c.frais_transport_unitaire || '')}"></div>
+          <div class="aide" style="align-self:end">Les deux incluent le transport jusqu'à Lomé. En « tout compris », pas de douane à annoncer ni à encaisser à l'arrivée. La phrase de prix en fin de description est mise à jour automatiquement.</div>
         </div>
         ${estSupport() && nouvelle ? `<fieldset class="carte-interne fournisseur-interne">
           <legend>🔗 Fournisseur <span class="badge-interne">Équipe seulement</span></legend>
@@ -574,9 +575,8 @@
         const image_url = images[0] || null;
         const val = (x) => document.getElementById(x).value;
         const ligne = {
-          titre: val('titre').trim(), description: val('desc').trim() || null, image_url, images,
+          titre: val('titre').trim(), description: phrasePrix(val('desc').trim(), val('tp')) || null, image_url, images,
           prix_unitaire: parseInt(val('prix'), 10), type_prix: val('tp'),
-          frais_transport_unitaire: val('ft') ? parseInt(val('ft'), 10) : null,
           prix_reference: val('pref') ? parseInt(val('pref'), 10) : null,
           quota: parseInt(val('quota'), 10), date_cloture: new Date(val('cloture')).toISOString(), mode_transport: val('mode'),
           variantes: lireVariantes(val('variantes')),
@@ -1483,6 +1483,16 @@
       });
     });
     dlg.showModal();
+  }
+
+  // Phrase de prix en fin de description, selon le type de prix (hors taxes / tout compris)
+  const PHRASE_HT = "Prix hors taxes, transport jusqu'à Lomé inclus. Frais de douane et de livraison communiqués à l'arrivée.";
+  const PHRASE_TTC = 'Prix tout compris : transport et dédouanement inclus. Seule la livraison à domicile, si vous la choisissez, est en plus.';
+  function phrasePrix(desc, type) {
+    const voulue = type === 'TTC' ? PHRASE_TTC : PHRASE_HT;
+    const lignes = String(desc || '').split('\n').filter((l) => !/^Prix (hors taxes|tout compris|livré à Lomé)/i.test(l.trim()));
+    while (lignes.length && !lignes[lignes.length - 1].trim()) lignes.pop();
+    return lignes.length ? lignes.join('\n') + '\n' + voulue : '';
   }
 
   // Lien de paiement : https obligatoire ; renvoie null si vide, false si invalide
