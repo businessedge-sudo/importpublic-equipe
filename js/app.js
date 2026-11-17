@@ -491,7 +491,7 @@
         </fieldset>` : ''}
         <label for="lienpay">Lien de paiement (facultatif)</label>
         <input id="lienpay" type="text" inputmode="url" value="${esc(c.lien_paiement || '')}" placeholder="https://…">
-        <div class="aide">Le lien Monniz à montant fixe, au prix d'une pièce. Il est envoyé aux clients qui commandent 1 pièce (message, relances, bouton « Payer en ligne »). Au-delà d'une pièce, le client paie avec notre aide sur WhatsApp.</div>
+        <div class="aide">Le lien Monniz à montant fixe, au prix d'une pièce. Il est envoyé aux clients qui commandent 1 pièce (message, relances, bouton « Payer par Mobile Money »). Au-delà d'une pièce, le client paie avec notre aide sur WhatsApp.</div>
         <label for="variantes">Variantes (facultatif)</label>
         <textarea id="variantes" rows="3" placeholder="Une caractéristique par ligne, options séparées par des virgules&#10;Pointure : 40, 41, 42, 43&#10;Couleur : Noir, Blanc">${esc((c.variantes || []).map((v) => `${v.nom} : ${(v.options || []).join(', ')}`).join('\n'))}</textarea>
         <div class="variantes-raccourcis">${[

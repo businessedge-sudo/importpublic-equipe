@@ -24,13 +24,13 @@
     const enrichir = (t) => {
       // « Payer en ligne : <lien> » devient un bouton de paiement ; les liens wa.me un bouton WhatsApp
       const payer = [];
-      let h = esc(t).replace(/Payer en ligne : (https:\/\/[^\s<]+[^\s<.,;:!?)\]'"])/g, (m, u) => {
+      let h = esc(t).replace(/Payer (?:en ligne|par Mobile Money) : (https:\/\/[^\s<]+[^\s<.,;:!?)\]'"])/g, (m, u) => {
         payer.push(u); return '\u0001' + (payer.length - 1) + '\u0001';
       });
       h = h.replace(/(https?:\/\/[^\s<]+[^\s<.,;:!?)\]'"])/g, (u) => /^https:\/\/wa\.me\//.test(u)
         ? `<a class="chat-wa" href="${u}" target="_blank" rel="noopener nofollow">💬 Écrire sur WhatsApp</a>`
         : `<a href="${u}" target="_blank" rel="noopener nofollow">${u}</a>`);
-      h = h.replace(/\u0001(\d+)\u0001/g, (m, k) => `<a class="chat-payer" href="${payer[k]}" target="_blank" rel="noopener nofollow">💳 Payer en ligne</a>`);
+      h = h.replace(/\u0001(\d+)\u0001/g, (m, k) => `<a class="chat-payer" href="${payer[k]}" target="_blank" rel="noopener nofollow">📱 Payer par Mobile Money</a>`);
       return h.replace(/\n/g, '<br>');
     };
 
