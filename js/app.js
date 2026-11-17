@@ -1308,11 +1308,22 @@
         <div id="cw-demande">
           <label for="cw-desc">Description du produit</label>
           <textarea id="cw-desc" rows="3" placeholder="Copiez ce qu'il a écrit : produit, couleur, taille, budget…"></textarea>
+          <label>Photo du produit (facultatif)</label>
+          <div class="cw-photo">
+            <img id="cw-apercu" alt="" hidden>
+            <button type="button" class="btn btn-second btn-petit" id="cw-photo-btn">📷 Ajouter la photo envoyée par le client</button>
+            <button type="button" class="btn btn-lien btn-petit" id="cw-photo-suppr" hidden>Retirer</button>
+            <input id="cw-photo" type="file" accept="image/*" hidden>
+          </div>
+          <div class="aide">Enregistrez d'abord l'image reçue sur WhatsApp (ou faites une capture), puis ajoutez-la ici.</div>
           <div class="rangee">
             <div><label for="cw-qte">Quantité</label><input id="cw-qte" type="number" min="1" value="1" inputmode="numeric"></div>
             <div><label for="cw-budget">Budget (F, facultatif)</label><input id="cw-budget" type="number" min="0" inputmode="numeric"></div>
           </div>
           <label for="cw-lien">Lien ou référence envoyé par le client (facultatif)</label><input id="cw-lien" inputmode="url">
+          <label for="cw-transport">Transport souhaité (facultatif)</label>
+          <select id="cw-transport"><option value="">Pas de préférence</option><option value="aerien">Aérien (≈ 3 semaines, plus cher)</option>
+            <option value="maritime">Maritime (30 à 45 jours, moins cher)</option></select>
         </div>
         <div id="cw-campagne" hidden>
           <label for="cw-camp">Campagne</label>
@@ -1341,6 +1352,20 @@
     };
     tel.addEventListener('change', chercher);
     tel.addEventListener('blur', chercher);
+    // Photo de la demande : aperçu, contrôle de lisibilité
+    let photoCw = null;
+    const inPhoto = document.getElementById('cw-photo');
+    const apercu = document.getElementById('cw-apercu');
+    const bPhoto = document.getElementById('cw-photo-btn');
+    const bSupPh = document.getElementById('cw-photo-suppr');
+    bPhoto.addEventListener('click', () => inPhoto.click());
+    inPhoto.addEventListener('change', async () => {
+      const f = inPhoto.files[0]; inPhoto.value = '';
+      if (!f) return;
+      if (!(await window.IA.imageLisible(f)) && !window.IA.estHeic(f)) { toast(`Photo illisible (${f.type || 'format inconnu'}) : enregistrez-la en JPG ou faites une capture d'écran.`, 'ko'); return; }
+      photoCw = f; apercu.src = URL.createObjectURL(f); apercu.hidden = false; bSupPh.hidden = false; bPhoto.textContent = '📷 Changer la photo';
+    });
+    bSupPh.addEventListener('click', () => { photoCw = null; apercu.hidden = true; bSupPh.hidden = true; bPhoto.textContent = '📷 Ajouter la photo envoyée par le client'; });
     const typeActuel = () => (vue.querySelector('input[name=cw-type]:checked') || {}).value || 'demande';
     const majType = () => {
       document.getElementById('cw-demande').hidden = typeActuel() !== 'demande';
@@ -1376,9 +1401,17 @@
         if (typeActuel() === 'demande') {
           const desc = document.getElementById('cw-desc').value.trim();
           if (desc.length < 2) { toast('Décrivez le produit demandé', 'ko'); return; }
+          let photoPath = null;
+          if (photoCw) {
+            const blob = await compresserImage(photoCw, 1280, 0.8);
+            photoPath = `${client.id}/${Date.now()}.${blob.type === 'image/png' ? 'png' : blob.type === 'image/webp' ? 'webp' : 'jpg'}`;
+            const up = await sb.storage.from('demandes').upload(photoPath, blob, { contentType: blob.type || 'image/jpeg' });
+            if (up.error) { toast('Photo non envoyée : ' + msgErreur(up.error), 'ko'); return; }
+          }
           const { data: idD, error: e } = await sb.rpc('creer_demande_pour', { p_client: client.id, p_description: desc,
             p_quantite: parseInt(document.getElementById('cw-qte').value, 10) || 1, p_lien: document.getElementById('cw-lien').value.trim() || null,
-            p_budget: parseInt(document.getElementById('cw-budget').value, 10) || null });
+            p_budget: parseInt(document.getElementById('cw-budget').value, 10) || null,
+            p_photo_path: photoPath, p_mode_transport: document.getElementById('cw-transport').value || null });
           if (e) { toast(msgErreur(e), 'ko'); return; }
           lien = '#/demande/' + idD; objet = 'demande';
         } else {

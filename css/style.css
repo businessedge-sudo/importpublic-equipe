@@ -1416,3 +1416,5 @@ fieldset.fournisseur-interne legend { font-weight: 800; padding: 0 6px; display:
 .suivi-code b { font-size: 1.4rem; letter-spacing: .12em; color: var(--accent); }
 .suivi-acces summary { cursor: pointer; }
 .suivi-acces form { margin-top: 10px; }
+.cw-photo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.cw-photo img { width: 96px; height: 96px; object-fit: cover; border-radius: 12px; border: 1px solid var(--ligne); }
