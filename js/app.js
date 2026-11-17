@@ -921,13 +921,13 @@
     const aRembourser = d.statut === 'annulee' ? (paies || []).filter((p) => p.statut === 'confirme') : [];
     const prenom = (cl.nom_complet || '').split(' ')[0] || '';
     const texteWa = (n) => `Bonjour ${prenom},\n\nNous revenons vers vous au sujet de votre devis${devis ? ' n° ' + devis.numero : ''} pour « ${(d.description || '').slice(0, 60)} », d'un montant de ${fcfa(d.montant_devis)} hors taxes. Les frais de douane et de livraison vous seront communiqués une fois votre colis arrivé à Lomé.\n\n`
-      + `Vous pouvez le retrouver dans votre messagerie Import Public pour le consulter, nous poser vos questions ou procéder au paiement :\n${cfg.urlSite.replace(/^https?:\/\//, '')}/#/messages\n\n`
+      + `Vous pouvez le consulter, nous poser vos questions ou procéder au paiement depuis votre page de suivi ci-dessous, ou simplement en nous répondant ici.\n\n`
       + `${n >= 4 ? 'Sans nouvelle de votre part, nous clôturerons cette demande dans quelques jours.\n\n' : ''}Merci et à bientôt,\n\nL'équipe Import Public`;
     const opt = (vals, cur, fmt) => vals.map((v) => `<option value="${v}"${Number(cur) === v ? ' selected' : ''}>${fmt(v)}</option>`).join('');
     const blocRelances = d.statut === 'devis_envoye' ? `<div class="carte relances-etat">
         <h2>Relances du devis</h2>
         ${d.relance_wa_a_faire ? `<div class="alerte alerte-alerte">Relance n° ${d.relance_wa_a_faire} à envoyer sur WhatsApp.</div>
-          ${cl.telephone ? `<a class="btn btn-wa btn-large" id="relance-wa" target="_blank" rel="noopener" href="${waLien(cl.telephone, texteWa(d.relance_wa_a_faire))}">Envoyer la relance WhatsApp</a>` : '<p class="discret">Pas de numéro WhatsApp pour ce client.</p>'}
+          ${cl.telephone ? `<button type="button" class="btn btn-wa btn-large" id="relance-wa">Envoyer la relance WhatsApp</button>` : '<p class="discret">Pas de numéro WhatsApp pour ce client.</p>'}
           <button class="btn btn-second" id="relance-wa-faite">J'ai envoyé la relance</button>` : ''}
         <p>${d.relances_prevues ? `${d.relances_faites} / ${d.relances_prevues} relance(s) faite(s)` : 'Aucune relance programmée.'}
           ${d.prochaine_relance_le ? ` · prochaine le <b>${esc(date(d.prochaine_relance_le, true))}</b>` : ''}</p>
@@ -1014,6 +1014,8 @@
     }
     brancherRetard(null, d.id);
     brancherDouane(null, d.id);
+    const bRelWa = document.getElementById('relance-wa');
+    if (bRelWa) bRelWa.addEventListener('click', () => transmettreWhatsApp({ ...cl, id: d.client_id }, texteWa(d.relance_wa_a_faire)));
     const bTrD = document.getElementById('cw-transmettre-d');
     if (bTrD) bTrD.addEventListener('click', () => transmettreWhatsApp({ ...cl, id: d.client_id }));
     const bLsD = document.getElementById('cw-lien-d');
@@ -1262,7 +1264,14 @@
       texte = m ? m.texte : `Bonjour ${(client.nom_complet || '').split(' ')[0]},`;
     }
     texte = texte.replace(/\n*L'équipe Import Public\s*$/, '');
-    texte += `\n\n📲 Suivez votre commande ici, à tout moment, sans créer de compte :\n${lienSuiviUrl(t)}\n\nL'équipe Import Public`;
+    // A-t-il déjà un accès au site ? Sinon, on l'invite toujours à s'inscrire (depuis sa page de suivi : son historique est conservé)
+    const { data: pr } = await sb.from('profils').select('email').eq('id', client.id).maybeSingle();
+    const aUnAcces = !!(pr && pr.email);
+    texte += `\n\n📲 Suivez votre commande ici, à tout moment :\n${lienSuiviUrl(t)}`;
+    texte += aUnAcces
+      ? `\n\n💬 Retrouvez aussi tous vos messages dans votre espace : ${cfg.urlSite}/#/messages`
+      : `\n\n👉 Créez votre compte Import Public en 1 minute pour commander vous-même et être prévenu automatiquement à chaque étape (votre historique est déjà dedans) :\n${lienSuiviUrl(t)}?acces=1`;
+    texte += `\n\nL'équipe Import Public`;
     window.open(waLien(client.telephone, texte), '_blank', 'noopener');
   }
   async function copierLienSuivi(client) {
