@@ -122,7 +122,8 @@
     const routes = { '': vueAccueil, paiements: vuePaiements, campagnes: vueCampagnes, campagne: vueCampagne,
                      demandes: vueDemandes, demande: vueDemande, colis: vueColis, reseau: vueReseau, reglages: vueReglages,
                      pistes: ops.vuePistes, piste: ops.vuePiste, utilisateurs: ops.vueUtilisateurs,
-                     messages: vueMessages, alertes: vueAlertes, document: vueDocument, 'bon-commande': vueBonCommande };
+                     messages: vueMessages, alertes: vueAlertes, document: vueDocument, 'bon-commande': vueBonCommande,
+                     'client-whatsapp': vueClientWhatsApp };
     vue.innerHTML = '<div class="chargement">Chargement…</div>';
     Promise.resolve((routes[m[0] || ''] || vueAccueil)(m[1], params)).catch((e) => {
       vue.innerHTML = `<div class="carte"><div class="alerte alerte-ko">${esc(msgErreur(e))}</div>
@@ -343,6 +344,7 @@
           <button data-vue="galerie" class="${mode === 'galerie' ? 'actif' : ''}"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg>Galerie</button>
           <button data-vue="liste" class="${mode === 'liste' ? 'actif' : ''}"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="5" height="5" rx="1.5"/><rect x="3" y="15" width="5" height="5" rx="1.5"/><path d="M11 6h10M11 9h6M11 17h10M11 20h6"/></svg>Liste</button>
         </div>
+        ${estSupport() ? '<a class="btn btn-wa btn-petit" href="#/client-whatsapp?type=campagne">+ Commande WhatsApp</a>' : ''}
         <a class="btn btn-petit" href="#/campagne/nouvelle">+ Nouvelle</a></div></div>
       <div class="filtres">${filtres.map(([k, l]) => `<button class="${k === f ? 'actif' : ''}" data-f="${k}">${l}<span class="dm-compte">${data.filter((c) => garde(c, k)).length}</span></button>`).join('')}</div>
       ${liste.length ? (mode === 'liste' ? lignes() : galerie())
@@ -366,7 +368,7 @@
       if (r.error) throw r.error;
       if (!r.data) { vue.innerHTML = '<div class="carte vide">Campagne introuvable.</div>'; return; }
       c = r.data;
-      const o = await sb.from('commandes').select('*, profils(nom_complet,telephone,pays,region), colis(reference,statut)').eq('campagne_id', id).order('created_at');
+      const o = await sb.from('commandes').select('*, profils(id,nom_complet,telephone,pays,region,via_whatsapp), colis(reference,statut)').eq('campagne_id', id).order('created_at');
       if (o.error) throw o.error;
       commandes = o.data;
     }
@@ -444,6 +446,7 @@
             <div class="actions-ligne">${badge(o.confirmation === 'en_attente_client' && o.statut === 'en_attente_paiement' ? 'en_attente_client' : o.statut)}
               ${o.statut === 'payee' && ['arrivee', 'terminee'].includes(c.statut) && !colisDe(o) ? `<button class="btn btn-ok btn-petit" data-livrer="${o.id}">Livré</button>` : ''}
               ${o.statut === 'a_rembourser' && estFinance() ? `<button class="btn btn-second btn-petit" data-rembourser="${o.id}">Remboursé</button>` : ''}
+              ${estSupport() && o.profils.telephone ? `<button class="btn btn-wa btn-petit" data-transmettre="${o.id}" title="Envoyer le dernier message et le lien de suivi">WhatsApp</button>` : ''}
               ${o.statut === 'en_attente_paiement' && estFinance() ? `<button class="btn btn-ok btn-petit" data-approuver-cmd="${o.id}">Approuver le paiement</button>` : ''}
               ${o.statut === 'en_attente_paiement' ? `<button class="btn btn-ko btn-petit" data-annuler="${o.id}">Annuler</button>` : ''}
               ${o.statut === 'payee' && estFinance() ? `<button class="btn btn-ko btn-petit" data-retirer-cmd="${o.id}">Retirer</button>` : ''}
@@ -736,6 +739,10 @@
         if (error) toast(msgErreur(error), 'ko'); else { toast('Commande annulée'); router(); }
       });
     }));
+    vue.querySelectorAll('[data-transmettre]').forEach((b) => b.addEventListener('click', () => {
+      const o = commandes.find((x) => x.id === b.dataset.transmettre);
+      transmettreWhatsApp({ ...o.profils, id: o.client_id });
+    }));
     vue.querySelectorAll('[data-approuver-cmd]').forEach((b) => b.addEventListener('click', async () => {
       const o = commandes.find((x) => x.id === b.dataset.approuverCmd);
       const { data: decl } = await sb.from('paiements').select('operateur,reference_externe,numero_payeur').eq('commande_id', o.id).eq('statut', 'initie').maybeSingle();
@@ -836,10 +843,12 @@
         <span class="dm-ligne-fin">${badge(d.statut)}${prix(d)}<span class="dm-chevron">›</span></span></a>`).join('')}</div>`;
 
     vue.innerHTML = `<div class="dm-entete"><h1>Sur mesure</h1>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        ${estSupport() ? '<a class="btn btn-wa btn-petit" href="#/client-whatsapp?type=demande">+ Demande WhatsApp</a>' : ''}
         <div class="dm-vues" role="group" aria-label="Affichage">
           <button data-vue="galerie" class="${mode === 'galerie' ? 'actif' : ''}" aria-label="Vue galerie"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg>Galerie</button>
           <button data-vue="liste" class="${mode === 'liste' ? 'actif' : ''}" aria-label="Vue liste"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="5" height="5" rx="1.5"/><rect x="3" y="15" width="5" height="5" rx="1.5"/><path d="M11 6h10M11 9h6M11 17h10M11 20h6"/></svg>Liste</button>
-        </div></div>
+        </div></div></div>
       <form class="dm-recherche" id="dm-recherche" role="search">
         <input id="dm-q" type="search" value="${esc(recherche)}" placeholder="Retrouver un produit déjà demandé : mot de la description, du lien ou de la note…" aria-label="Rechercher une demande">
         <button class="btn btn-second">Chercher</button>
@@ -868,7 +877,7 @@
 
   async function vueDemande(id) {
     if (etat.canal) { sb.removeChannel(etat.canal); etat.canal = null; }
-    const { data: d, error } = await sb.from('demandes').select('*, profils(nom_complet,telephone,email,pays,region)').eq('id', id).maybeSingle();
+    const { data: d, error } = await sb.from('demandes').select('*, profils(id,nom_complet,telephone,email,pays,region,via_whatsapp)').eq('id', id).maybeSingle();
     if (error) throw error;
     if (!d) { vue.innerHTML = '<div class="carte vide">Demande introuvable.</div>'; return; }
     const photo = d.photo_path ? (await sb.storage.from('demandes').createSignedUrl(d.photo_path, 3600)).data : null;
@@ -946,6 +955,10 @@
           <dt>Contact</dt><dd>${cl.telephone ? `<a href="${waLien(cl.telephone)}" target="_blank" rel="noopener">${esc(cl.telephone)}</a>` : '-'} · ${esc(cl.email || '')}</dd>
           <dt>Reçue le</dt><dd>${date(d.created_at, true)}</dd>
         </dl>
+        ${estSupport() && cl.telephone ? `<div class="cw-transmettre">
+          ${cl.via_whatsapp ? '<p class="alerte alerte-alerte" style="margin:10px 0 8px">Client WhatsApp : transmettez-lui chaque message sur WhatsApp.</p>' : ''}
+          <button type="button" class="btn btn-wa btn-petit" id="cw-transmettre-d">Envoyer le dernier message sur WhatsApp</button>
+          <button type="button" class="btn btn-second btn-petit" id="cw-lien-d">Copier son lien de suivi</button></div>` : ''}
       </div>
       ${blocSource}
       ${estSupport() ? `<div class="carte"><h2>Discussion avec ${esc(cl.nom_complet || 'le client')}</h2>
@@ -1001,6 +1014,10 @@
     }
     brancherRetard(null, d.id);
     brancherDouane(null, d.id);
+    const bTrD = document.getElementById('cw-transmettre-d');
+    if (bTrD) bTrD.addEventListener('click', () => transmettreWhatsApp({ ...cl, id: d.client_id }));
+    const bLsD = document.getElementById('cw-lien-d');
+    if (bLsD) bLsD.addEventListener('click', () => copierLienSuivi({ ...cl, id: d.client_id }));
     const bApD = document.getElementById('approuver-demande');
     if (bApD) bApD.addEventListener('click', () => dialogueApprobation({
       demandeId: d.id, montant: d.montant_devis, nom: cl.nom_complet,
@@ -1177,7 +1194,7 @@
 
   async function vueConversation(clientId) {
     const [{ data: p, error }, { data: conv }, { data: cmd }, { data: dem }, { data: equipe }] = await Promise.all([
-      sb.from('profils').select('id,nom_complet,telephone,email,reference,region,pays,created_at').eq('id', clientId).maybeSingle(),
+      sb.from('profils').select('id,nom_complet,telephone,email,reference,region,pays,created_at,via_whatsapp').eq('id', clientId).maybeSingle(),
       sb.from('conversations').select('traite').eq('client_id', clientId).maybeSingle(),
       sb.from('commandes').select('id,quantite,montant_total,statut,created_at,campagne_id,campagnes(titre)').eq('client_id', clientId).order('created_at', { ascending: false }).limit(5),
       sb.from('demandes').select('id,description,statut,created_at').eq('client_id', clientId).order('created_at', { ascending: false }).limit(3),
@@ -1204,10 +1221,18 @@
               <span>${esc((c.campagnes && c.campagnes.titre) || 'Campagne')} · ${c.quantite}</span>${badge(c.statut)}</a>`).join('') : '<p class="discret">Aucune</p>'}
           ${(dem || []).length ? `<h3 style="margin-top:10px">Sur mesure</h3>${dem.map((d) => `<a class="ligne-info" href="#/demande/${d.id}" style="text-decoration:none;color:inherit">
               <span>${esc((d.description || '').slice(0, 40))}</span>${badge(d.statut)}</a>`).join('')}` : ''}
+          ${p.telephone ? `<div class="cw-transmettre">
+            ${p.via_whatsapp ? '<p class="alerte alerte-alerte" style="margin:10px 0 8px">Client WhatsApp : il ne lit pas cette messagerie. Transmettez-lui les messages sur WhatsApp.</p>' : ''}
+            <button type="button" class="btn btn-wa btn-petit" id="cw-transmettre">Envoyer le dernier message sur WhatsApp</button>
+            <button type="button" class="btn btn-second btn-petit" id="cw-lien">Copier son lien de suivi</button></div>` : ''}
           <label class="case-acceptation" style="margin-top:12px"><input type="checkbox" id="traite" ${conv && conv.traite ? 'checked' : ''}> Conversation traitée</label>
           <p class="aide">Vous pouvez modifier ou supprimer vos propres messages. Le client voit « modifié » ou « Message supprimé ».</p>
         </aside>
       </div>`;
+    const bTr = document.getElementById('cw-transmettre');
+    if (bTr) bTr.addEventListener('click', () => transmettreWhatsApp(p));
+    const bLs = document.getElementById('cw-lien');
+    if (bLs) bLs.addEventListener('click', () => copierLienSuivi(p));
     document.getElementById('traite').addEventListener('change', async (e) => {
       const { error: er } = await sb.rpc('classer_conversation', { p_client: clientId, p_traite: e.target.checked });
       if (er) toast(msgErreur(er), 'ko');
@@ -1220,6 +1245,165 @@
   // Retard de livraison : message à tous les clients payés de la campagne (ou au client de la demande)
   // Frais de douane : par unité pour une campagne (les mêmes pour tous), montant total pour une demande sur mesure.
   // Ils sont indiqués au client dans le message d'arrivée du colis et sur son bon de retrait.
+  // ------------------------------------------------------------------
+  // Clients WhatsApp : l'équipe enregistre la commande, le client suit avec un lien sans compte
+  // ------------------------------------------------------------------
+  const lienSuiviUrl = (t) => `${cfg.urlSite}/#/suivi/${t}`;
+
+  // Ouvre WhatsApp chez le client avec le dernier message de l'équipe (ou un message donné) + son lien de suivi
+  async function transmettreWhatsApp(client, texteForce) {
+    if (!client || !client.telephone) { toast('Ce client n\'a pas de numéro WhatsApp', 'ko'); return; }
+    const { data: t, error: e } = await sb.rpc('lien_suivi', { p_client: client.id });
+    if (e) { toast(msgErreur(e), 'ko'); return; }
+    let texte = texteForce;
+    if (!texte) {
+      const { data: m } = await sb.from('messages').select('texte').eq('client_id', client.id).eq('de_equipe', true)
+        .eq('supprime', false).order('cree_le', { ascending: false }).limit(1).maybeSingle();
+      texte = m ? m.texte : `Bonjour ${(client.nom_complet || '').split(' ')[0]},`;
+    }
+    texte = texte.replace(/\n*L'équipe Import Public\s*$/, '');
+    texte += `\n\n📲 Suivez votre commande ici, à tout moment, sans créer de compte :\n${lienSuiviUrl(t)}\n\nL'équipe Import Public`;
+    window.open(waLien(client.telephone, texte), '_blank', 'noopener');
+  }
+  async function copierLienSuivi(client) {
+    const { data: t, error: e } = await sb.rpc('lien_suivi', { p_client: client.id });
+    if (e) { toast(msgErreur(e), 'ko'); return; }
+    try { await navigator.clipboard.writeText(lienSuiviUrl(t)); toast('Lien de suivi copié'); }
+    catch { prompt('Lien de suivi du client :', lienSuiviUrl(t)); }
+  }
+
+  async function vueClientWhatsApp(_, params) {
+    if (!estSupport()) { vue.innerHTML = '<div class="carte vide">Réservé à l\'administrateur et aux assistants.</div>'; return; }
+    const type0 = params.get('type') === 'campagne' ? 'campagne' : 'demande';
+    const { data: camps } = await sb.from('campagnes').select('id,titre,prix_unitaire,variantes,image_url').eq('statut', 'ouverte').order('date_cloture');
+    const regions = window.IA.listeRegions ? window.IA.listeRegions('TG') : '';
+    vue.innerHTML = `
+      <p><a href="#/${type0 === 'campagne' ? 'campagnes' : 'demandes'}">← Retour</a></p>
+      <div class="cw-grille">
+      <form class="carte" id="form-cw">
+        <h1 style="margin-top:0">Client venu par WhatsApp</h1>
+        <p class="discret">Enregistrez sa commande pendant la conversation. Il recevra un lien pour la suivre, sans créer de compte.</p>
+        <h2>1. Le client</h2>
+        <label for="cw-tel">Numéro WhatsApp</label>
+        <input id="cw-tel" type="tel" inputmode="tel" required placeholder="90 00 00 00 ou +228 90 00 00 00" autocomplete="off">
+        <div id="cw-connu"></div>
+        <div id="cw-nouveau">
+          <label for="cw-nom">Nom</label><input id="cw-nom" placeholder="Ex. : Afi Mensah" autocomplete="off">
+          <label for="cw-region">Ville ou quartier (facultatif)</label><input id="cw-region" placeholder="Ex. : Lomé, Agoè">
+        </div>
+        <h2 style="margin-top:18px">2. Ce qu'il veut</h2>
+        <div class="cw-type" role="radiogroup">
+          <label><input type="radio" name="cw-type" value="demande" ${type0 === 'demande' ? 'checked' : ''}><span>Produit sur mesure</span></label>
+          <label><input type="radio" name="cw-type" value="campagne" ${type0 === 'campagne' ? 'checked' : ''} ${(camps || []).length ? '' : 'disabled'}><span>Campagne en cours${(camps || []).length ? '' : ' (aucune)'}</span></label>
+        </div>
+        <div id="cw-demande">
+          <label for="cw-desc">Description du produit</label>
+          <textarea id="cw-desc" rows="3" placeholder="Copiez ce qu'il a écrit : produit, couleur, taille, budget…"></textarea>
+          <div class="rangee">
+            <div><label for="cw-qte">Quantité</label><input id="cw-qte" type="number" min="1" value="1" inputmode="numeric"></div>
+            <div><label for="cw-budget">Budget (F, facultatif)</label><input id="cw-budget" type="number" min="0" inputmode="numeric"></div>
+          </div>
+          <label for="cw-lien">Lien ou référence envoyé par le client (facultatif)</label><input id="cw-lien" inputmode="url">
+        </div>
+        <div id="cw-campagne" hidden>
+          <label for="cw-camp">Campagne</label>
+          <select id="cw-camp">${(camps || []).map((c) => `<option value="${c.id}">${esc(c.titre)} · ${fcfa(c.prix_unitaire)}</option>`).join('')}</select>
+          <div id="cw-variantes"></div>
+          <label for="cw-qte-c">Quantité</label><input id="cw-qte-c" type="number" min="1" value="1" inputmode="numeric">
+          <p class="aide" id="cw-total"></p>
+        </div>
+        <button class="btn btn-large btn-ok" style="margin-top:16px">Enregistrer</button>
+      </form>
+      <div id="cw-resultat"></div>
+      </div>`;
+    let connu = null;
+    const tel = document.getElementById('cw-tel');
+    const zoneConnu = document.getElementById('cw-connu');
+    const zoneNouveau = document.getElementById('cw-nouveau');
+    const chercher = async () => {
+      connu = null; zoneConnu.innerHTML = ''; zoneNouveau.hidden = false;
+      if (tel.value.replace(/\D/g, '').length < 8) return;
+      const { data } = await sb.rpc('client_par_telephone', { p_tel: tel.value });
+      const c = Array.isArray(data) ? data[0] : null;
+      if (c) {
+        connu = c; zoneNouveau.hidden = true;
+        zoneConnu.innerHTML = `<div class="alerte alerte-ok">Client déjà connu : <b>${esc(c.nom_complet || 'Client')}</b> · réf. ${esc(c.reference || '')}${c.via_whatsapp ? ' · client WhatsApp' : ' · a un compte sur le site'}</div>`;
+      }
+    };
+    tel.addEventListener('change', chercher);
+    tel.addEventListener('blur', chercher);
+    const typeActuel = () => (vue.querySelector('input[name=cw-type]:checked') || {}).value || 'demande';
+    const majType = () => {
+      document.getElementById('cw-demande').hidden = typeActuel() !== 'demande';
+      document.getElementById('cw-campagne').hidden = typeActuel() !== 'campagne';
+    };
+    vue.querySelectorAll('input[name=cw-type]').forEach((x) => x.addEventListener('change', majType));
+    majType();
+    const majCampagne = () => {
+      const c = (camps || []).find((x) => x.id === document.getElementById('cw-camp').value);
+      const vs = (c && Array.isArray(c.variantes)) ? c.variantes : [];
+      document.getElementById('cw-variantes').innerHTML = vs.map((v, i) => `<label for="cw-v${i}">${esc(v.nom)}</label>
+        <select id="cw-v${i}" data-nom="${esc(v.nom)}" required><option value="">Choisir…</option>${(v.options || []).map((o) => `<option>${esc(o)}</option>`).join('')}</select>`).join('');
+      const q = Math.max(1, parseInt(document.getElementById('cw-qte-c').value, 10) || 1);
+      document.getElementById('cw-total').textContent = c ? `Total : ${fcfa(c.prix_unitaire * q)} hors taxes` : '';
+    };
+    const sel = document.getElementById('cw-camp');
+    if (sel) { sel.addEventListener('change', majCampagne); document.getElementById('cw-qte-c').addEventListener('input', majCampagne); majCampagne(); }
+
+    document.getElementById('form-cw').addEventListener('submit', (ev) => {
+      ev.preventDefault();
+      occupe(ev.target.querySelector('button.btn-large'), async () => {
+        await chercher();
+        let client = connu;
+        if (!client) {
+          const nom = document.getElementById('cw-nom').value.trim();
+          if (nom.length < 2) { toast('Indiquez le nom du client', 'ko'); return; }
+          const { data, error: e } = await sb.functions.invoke('clients-whatsapp', { body: {
+            action: 'creer', nom, telephone: normTel(tel.value, 'TG'), region: document.getElementById('cw-region').value.trim(), pays: 'TG' } });
+          if (e || !data || !data.ok) { toast((data && data.message) || msgErreur(e), 'ko'); return; }
+          client = data.client;
+        }
+        let lien, objet;
+        if (typeActuel() === 'demande') {
+          const desc = document.getElementById('cw-desc').value.trim();
+          if (desc.length < 2) { toast('Décrivez le produit demandé', 'ko'); return; }
+          const { data: idD, error: e } = await sb.rpc('creer_demande_pour', { p_client: client.id, p_description: desc,
+            p_quantite: parseInt(document.getElementById('cw-qte').value, 10) || 1, p_lien: document.getElementById('cw-lien').value.trim() || null,
+            p_budget: parseInt(document.getElementById('cw-budget').value, 10) || null });
+          if (e) { toast(msgErreur(e), 'ko'); return; }
+          lien = '#/demande/' + idD; objet = 'demande';
+        } else {
+          const variante = {};
+          for (const s2 of document.querySelectorAll('#cw-variantes select')) {
+            if (!s2.value) { toast('Choisissez : ' + s2.dataset.nom, 'ko'); return; }
+            variante[s2.dataset.nom] = s2.value;
+          }
+          const camp = document.getElementById('cw-camp').value;
+          const { error: e } = await sb.rpc('creer_commande_pour', { p_client: client.id, p_campagne: camp,
+            p_quantite: parseInt(document.getElementById('cw-qte-c').value, 10) || 1, p_variante: variante });
+          if (e) { toast(msgErreur(e), 'ko'); return; }
+          lien = '#/campagne/' + camp; objet = 'commande';
+        }
+        const { data: prof } = await sb.from('profils').select('id,nom_complet,telephone,reference,suivi_token').eq('id', client.id).single();
+        document.getElementById('cw-resultat').innerHTML = `<div class="carte cw-ok">
+          <h2>✅ ${objet === 'demande' ? 'Demande' : 'Commande'} enregistrée</h2>
+          <p><b>${esc(prof.nom_complet || 'Client')}</b> · réf. ${esc(prof.reference || '')}</p>
+          <p class="discret">Envoyez-lui maintenant le message de confirmation avec son lien de suivi. WhatsApp s'ouvre sur sa conversation, le message est déjà écrit.</p>
+          <button type="button" class="btn btn-wa btn-large" id="cw-envoyer">Envoyer sur WhatsApp</button>
+          <div class="boutons" style="margin-top:10px">
+            <button type="button" class="btn btn-second btn-petit" id="cw-copier">Copier le lien de suivi</button>
+            <a class="btn btn-second btn-petit" href="${lien}">Voir la ${objet}</a>
+            <a class="btn btn-second btn-petit" href="#/messages/${prof.id}">Sa conversation</a>
+            <a class="btn btn-second btn-petit" href="#/client-whatsapp?type=${typeActuel()}">+ Autre client</a>
+          </div></div>`;
+        document.getElementById('cw-envoyer').addEventListener('click', () => transmettreWhatsApp(prof));
+        document.getElementById('cw-copier').addEventListener('click', () => copierLienSuivi(prof));
+        document.getElementById('cw-resultat').scrollIntoView({ behavior: 'smooth' });
+        toast('Enregistré');
+      });
+    });
+  }
+
   // Approuver un paiement reçu : déclaré par le client ou reçu ailleurs (Monniz, WhatsApp, espèces).
   // Le paiement passe « confirmé » : commande ou demande payée, reçu envoyé au client, suite du circuit.
   function dialogueApprobation({ commandeId, demandeId, montant, nom, declare, apres }) {
