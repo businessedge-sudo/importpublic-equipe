@@ -1418,3 +1418,31 @@ fieldset.fournisseur-interne legend { font-weight: 800; padding: 0 6px; display:
 .suivi-acces form { margin-top: 10px; }
 .cw-photo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .cw-photo img { width: 96px; height: 96px; object-fit: cover; border-radius: 12px; border: 1px solid var(--ligne); }
+
+/* ------------------------------------------------------------------
+   Disponible à Lomé : articles livrés vite (bandeau vert « rapide »)
+   ------------------------------------------------------------------ */
+.titre-lome { margin-top: 26px; }
+.ico-titre.lome { color: #1c7c54; }
+.lien-tout { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; color: #1c7c54; text-decoration: none; white-space: nowrap; }
+.lien-tout .ico { width: 16px; height: 16px; }
+.sous-titre-lome { margin: -6px 0 12px; color: var(--encre-2, #555); font-size: .95rem; }
+.liste-lome { grid-auto-flow: column; grid-template-columns: none; grid-auto-columns: minmax(172px, 46%);
+  overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 6px; -webkit-overflow-scrolling: touch; }
+.liste-lome > .campagne { scroll-snap-align: start; }
+@media (min-width: 760px) { .liste-lome { grid-auto-columns: minmax(200px, calc(25% - 9px)); } }
+.carte-lome { border-color: #bfe3cf; }
+.pastille-rapide { position: absolute; left: 10px; bottom: 10px; display: inline-flex; align-items: center; gap: 5px;
+  background: #1c7c54; color: #fff; font-weight: 700; font-size: .78rem; padding: 4px 9px; border-radius: 99px; box-shadow: 0 4px 10px rgba(0,0,0,.18); }
+.pastille-rapide .ico { width: 15px; height: 15px; }
+.encart-rapide { display: flex; gap: 12px; align-items: flex-start; margin: 12px 0 4px; padding: 12px 14px; border-radius: 14px;
+  background: #e9f7ef; border: 1px solid #bfe3cf; color: #145c3e; }
+.encart-rapide .ico { width: 26px; height: 26px; flex: none; }
+.encart-rapide b { display: block; }
+.encart-rapide span { font-size: .88rem; }
+.intro-lome h1 { color: #145c3e; }
+.filtres-lome { margin: 0 0 12px; }
+.montant-saisir { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 10px; padding: 10px 12px; border-radius: 10px; background: rgba(22,163,74,.08); border: 1px dashed rgba(22,163,74,.45); }
+.montant-saisir span { font-size: .9em; opacity: .8; }
+.montant-saisir b { font-size: 1.25em; }
+.paiement-lien .montant-saisir .btn, .suivi-payer .montant-saisir .btn { width: auto; margin-left: auto; }

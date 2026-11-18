@@ -493,9 +493,9 @@
           <textarea id="src-note" rows="2" placeholder="Prix négocié, MOQ, délai de production, couleur de référence…">${esc(src.note || '')}</textarea>
           ${src.maj_le ? `<p class="aide">Modifié le ${esc(date(src.maj_le, true))}${src.profils && src.profils.nom_complet ? ' par ' + esc(src.profils.nom_complet) : ''}.</p>` : ''}
         </fieldset>` : ''}
-        <label for="lienpay">Lien de paiement (facultatif)</label>
-        <input id="lienpay" type="text" inputmode="url" value="${esc(c.lien_paiement || '')}" placeholder="https://…">
-        <div class="aide">Le lien Monniz à montant fixe, au prix d'une pièce. Il est envoyé aux clients qui commandent 1 pièce (message, relances, bouton « Payer par Mobile Money »). Au-delà d'une pièce, le client paie avec notre aide sur WhatsApp.</div>
+        <label for="lienpay">Lien de paiement propre à cette campagne (facultatif)</label>
+        <input id="lienpay" type="text" inputmode="url" value="${esc(c.lien_paiement || '')}" placeholder="Laissez vide : le lien général des Réglages est utilisé">
+        <div class="aide">Laissez vide dans la plupart des cas : le client paie avec le lien général (Réglages) en saisissant le montant affiché. Ne remplissez que pour un lien à montant fixe, au prix d'une pièce (utilisé seulement quand le client commande 1 pièce).</div>
         <label for="variantes">Variantes (facultatif)</label>
         <textarea id="variantes" rows="3" placeholder="Une caractéristique par ligne, options séparées par des virgules&#10;Pointure : 40, 41, 42, 43&#10;Couleur : Noir, Blanc">${esc((c.variantes || []).map((v) => `${v.nom} : ${(v.options || []).join(', ')}`).join('\n'))}</textarea>
         <div class="variantes-raccourcis">${[
@@ -985,8 +985,8 @@
           <option value="TTC" ${d.type_prix === 'TTC' ? 'selected' : ''}>Tout compris (TTC) : douane incluse</option></select>`}
         <label for="montant">${local ? 'Prix total, tout compris, hors livraison à domicile (F CFA)' : 'Prix total, transport jusqu\'à Lomé inclus (F CFA)'}</label>
         <input id="montant" type="number" inputmode="numeric" min="1" required value="${esc(d.montant_devis || (local ? d.budget : '') || '')}">
-        <label for="lienpay-d">Lien de paiement (facultatif)</label>
-        <input id="lienpay-d" type="text" inputmode="url" value="${esc(d.lien_paiement || '')}" placeholder="https://… (lien généré pour ce montant)">
+        <label for="lienpay-d">Lien de paiement propre à ce devis (facultatif)</label>
+        <input id="lienpay-d" type="text" inputmode="url" value="${esc(d.lien_paiement || '')}" placeholder="Laissez vide : le lien général des Réglages est utilisé">
         <label for="note">Message au client (affiché sur le devis)</label>
         <textarea id="note" placeholder="Ex. : Modèle disponible en noir, livraison aérien sous 3 semaines.">${esc(d.note_devis || '')}</textarea>
         <fieldset class="relances-choix"><legend>Relances si le client ne répond pas</legend>
@@ -1701,6 +1701,9 @@
         <label for="tm">Numéro marchand T-Money</label><input id="tm" inputmode="tel" value="${esc(g.numero_marchand_tmoney || '')}">
         <label for="fl">Numéro marchand Flooz</label><input id="fl" inputmode="tel" value="${esc(g.numero_marchand_flooz || '')}">
         <label for="wa">WhatsApp de contact</label><input id="wa" type="tel" inputmode="tel" value="${esc(g.whatsapp || '')}">
+        <label for="lpg">Lien de paiement général (T-Money et Flooz)</label>
+        <input id="lpg" type="text" inputmode="url" value="${esc(g.lien_paiement_general || '')}" placeholder="https://link.saspay.me/…">
+        <p class="aide">Lien à montant libre, utilisé partout : campagnes, sur mesure, messages et relances. Le client y saisit le montant qu'on lui affiche. Pour en changer, collez le nouveau lien et enregistrez.</p>
         ${estAdmin() ? `<label class="case-acceptation" style="margin-top:14px"><input type="checkbox" id="pg-actif" ${g.paiement_en_ligne ? 'checked' : ''}>
           <span><b>Paiement en ligne PayGate activé</b><br><small class="discret">Le client paie depuis sa commande (demande envoyée sur son téléphone). Le paiement est vérifié auprès de PayGate et le reçu est généré tout seul. Cochez seulement quand le compte PayGate est actif et la clé API enregistrée.</small></span></label>` : ''}
         <button class="btn btn-large" style="margin-top:14px">Enregistrer</button>
@@ -1738,6 +1741,7 @@
         const { error } = await sb.from('groupeurs').update({
           nom_marchand: v('nm') || null, numero_marchand_tmoney: v('tm') || null,
           numero_marchand_flooz: v('fl') || null, whatsapp: normTel(v('wa')) || null,
+          lien_paiement_general: (() => { const l = normLienPaiement(v('lpg')); if (l === false) throw new Error('Le lien de paiement doit commencer par https://'); return l || null; })(),
           ...(document.getElementById('pg-actif') ? { paiement_en_ligne: document.getElementById('pg-actif').checked } : {})
         }).eq('id', g.id);
         if (error) { toast(msgErreur(error), 'ko'); return; }
