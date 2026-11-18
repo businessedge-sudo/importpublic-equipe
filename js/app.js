@@ -116,7 +116,7 @@
 
     const onglet = { '': 'accueil', paiements: 'paiements', campagnes: 'campagnes', campagne: 'campagnes', 'bon-commande': 'campagnes', pistes: 'campagnes', piste: 'campagnes',
                      offres: 'campagnes', offre: 'campagnes',
-                     demandes: 'demandes', demande: 'demandes', colis: 'colis', reseau: 'reseau', reglages: 'reglages', utilisateurs: 'reglages',
+                     demandes: 'demandes', demande: 'demandes', colis: 'colis', reseau: 'reseau', reglages: 'reglages', utilisateurs: 'reglages', liens: 'reglages',
                      messages: 'messages', alertes: 'alertes' }[m[0] || ''];
     if (estPartenaire() && onglet !== 'colis' && onglet !== 'alertes') { location.hash = '#/colis'; return; }
     document.querySelectorAll('.nav-bas a, .nav-haut a').forEach((a) => a.classList.toggle('actif', a.dataset.onglet === onglet));
@@ -127,7 +127,7 @@
                      pistes: ops.vuePistes, piste: ops.vuePiste, utilisateurs: ops.vueUtilisateurs,
                      offres: offresMod.vueOffres, offre: offresMod.vueOffre,
                      messages: vueMessages, alertes: vueAlertes, document: vueDocument, 'bon-commande': vueBonCommande,
-                     'client-whatsapp': vueClientWhatsApp };
+                     'client-whatsapp': vueClientWhatsApp, liens: vueLiens };
     vue.innerHTML = '<div class="chargement">Chargement…</div>';
     Promise.resolve((routes[m[0] || ''] || vueAccueil)(m[1], params)).catch((e) => {
       vue.innerHTML = `<div class="carte"><div class="alerte alerte-ko">${esc(msgErreur(e))}</div>
@@ -1681,6 +1681,93 @@
   }
 
   // Alertes de ce téléphone (accessible à toute l'équipe, y compris les points de retrait)
+  // ------------------------------------------------------------------
+  // Liens de suivi : un lien par campagne de communication, avec ses chiffres
+  // ------------------------------------------------------------------
+  const CANAUX = ['Facebook', 'Statut WhatsApp', 'Groupes WhatsApp', 'TikTok', 'Instagram', 'Affiche / flyer', 'Bouche-à-oreille', 'Autre'];
+  const slug = (t) => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 32) || 'lien';
+  const urlLien = (l) => `${cfg.urlSite}/?src=${encodeURIComponent(l.code)}${l.destination || ''}`;
+
+  async function vueLiens() {
+    if (!estSupport()) { vue.innerHTML = '<div class="carte vide">Réservé à l\'administrateur et aux assistants.</div>'; return; }
+    const [{ data: liens, error }, { data: camps }] = await Promise.all([
+      sb.rpc('stats_liens'),
+      sb.from('campagnes').select('id,titre').in('statut', ['ouverte', 'brouillon']).order('created_at', { ascending: false })]);
+    if (error) { vue.innerHTML = `<div class="carte vide">${esc(msgErreur(error))}</div>`; return; }
+    const pct = (a, b) => b ? Math.round((a / b) * 100) + ' %' : '-';
+    const tot = (liens || []).reduce((t, l) => ({ v: t.v + Number(l.visiteurs), c: t.c + Number(l.comptes), o: t.o + Number(l.commandes), p: t.p + Number(l.commandes_payees), m: t.m + Number(l.montant_paye) }), { v: 0, c: 0, o: 0, p: 0, m: 0 });
+    const cartes = (liens || []).map((l) => `<div class="carte lien-suivi${l.actif ? '' : ' inactif'}">
+        <div class="ls-tete"><div><h2>${esc(l.nom)}</h2><p class="discret">${esc(l.canal || 'Canal non précisé')} · créé le ${esc(date(l.cree_le))}${l.actif ? '' : ' · <b>désactivé</b>'}</p></div></div>
+        <div class="ls-url"><code>${esc(urlLien(l))}</code>
+          <button type="button" class="btn btn-second btn-petit" data-copier-lien="${esc(urlLien(l))}">Copier le lien</button></div>
+        <div class="ls-chiffres">
+          <div><b>${l.visiteurs}</b><span>Visiteurs</span></div>
+          <div><b>${l.comptes}</b><span>Comptes créés</span></div>
+          <div><b>${l.commandes}</b><span>Commandes</span></div>
+          <div><b>${l.commandes_payees}</b><span>Payées</span></div>
+          <div><b>${fcfa(l.montant_paye)}</b><span>Encaissé</span></div>
+          <div><b>${pct(Number(l.commandes_payees), Number(l.visiteurs))}</b><span>Visiteurs → achat</span></div>
+        </div>
+        <button type="button" class="btn btn-lien btn-petit" data-basculer="${esc(l.code)}" data-actif="${l.actif ? '1' : ''}">${l.actif ? 'Désactiver ce lien' : 'Réactiver ce lien'}</button>
+      </div>`).join('');
+    vue.innerHTML = `
+      <p><a href="#/reglages">← Réglages</a></p>
+      <h1>Liens de suivi</h1>
+      <p class="discret">Créez un lien différent pour chaque publicité ou publication. Chaque visite, chaque compte créé et chaque commande passée après un clic sur ce lien sont comptés ici (pendant 30 jours après le clic, dernier lien cliqué).</p>
+      ${liens && liens.length ? `<div class="carte"><h2>Total, tous liens</h2><div class="ls-chiffres">
+        <div><b>${tot.v}</b><span>Visiteurs</span></div><div><b>${tot.c}</b><span>Comptes créés</span></div>
+        <div><b>${tot.o}</b><span>Commandes</span></div><div><b>${tot.p}</b><span>Payées</span></div>
+        <div><b>${fcfa(tot.m)}</b><span>Encaissé</span></div><div><b>${pct(tot.p, tot.v)}</b><span>Visiteurs → achat</span></div></div></div>` : ''}
+      <div class="deux-colonnes">
+      <form class="carte" id="form-lien">
+        <h2>Nouveau lien</h2>
+        <label for="ls-nom">Nom de la campagne de communication</label>
+        <input id="ls-nom" required maxlength="80" placeholder="Ex. : Facebook lanterne novembre">
+        <label for="ls-canal">Canal</label>
+        <select id="ls-canal">${CANAUX.map((c) => `<option>${esc(c)}</option>`).join('')}</select>
+        <label for="ls-dest">Page d'arrivée</label>
+        <select id="ls-dest"><option value="">Accueil du site</option>
+          ${(camps || []).map((c) => `<option value="#/campagne/${c.id}">Campagne : ${esc(c.titre)}</option>`).join('')}
+          <option value="#/disponible">Disponible tout de suite</option><option value="#/sur-mesure">Commande sur mesure</option></select>
+        <label for="ls-code">Code du lien</label>
+        <input id="ls-code" maxlength="40" pattern="[a-z0-9-]{2,40}" placeholder="rempli tout seul">
+        <p class="aide">Lettres minuscules, chiffres et tirets. Il apparaît dans le lien : importpublic.com/?src=<b>code</b></p>
+        <button class="btn btn-large" style="margin-top:14px">Créer le lien</button>
+      </form>
+      <div>${cartes || '<div class="carte vide">Aucun lien pour l\'instant. Créez-en un par publicité.</div>'}</div>
+      </div>`;
+
+    const nom = document.getElementById('ls-nom');
+    const code = document.getElementById('ls-code');
+    let codeTouche = false;
+    code.addEventListener('input', () => { codeTouche = true; });
+    nom.addEventListener('input', () => { if (!codeTouche) code.value = slug(nom.value); });
+    document.getElementById('form-lien').addEventListener('submit', (ev) => {
+      ev.preventDefault();
+      occupe(ev.target.querySelector('button'), async () => {
+        let c = slug(code.value || nom.value);
+        const pris = new Set((liens || []).map((l) => l.code));
+        if (pris.has(c)) { let i = 2; while (pris.has(c + '-' + i)) i++; c = c + '-' + i; }
+        const { error: e } = await sb.from('liens_suivi').insert({ code: c, nom: nom.value.trim(),
+          canal: document.getElementById('ls-canal').value, destination: document.getElementById('ls-dest').value });
+        if (e) { toast(/duplicate|unique/i.test(e.message) ? 'Ce code existe déjà, choisissez-en un autre' : msgErreur(e), 'ko'); return; }
+        const url = urlLien({ code: c, destination: document.getElementById('ls-dest').value });
+        try { await navigator.clipboard.writeText(url); toast('Lien créé et copié'); } catch { toast('Lien créé'); }
+        router();
+      });
+    });
+    vue.querySelectorAll('[data-copier-lien]').forEach((b) => b.addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText(b.dataset.copierLien); toast('Lien copié'); }
+      catch { prompt('Copiez le lien :', b.dataset.copierLien); }
+    }));
+    vue.querySelectorAll('[data-basculer]').forEach((b) => b.addEventListener('click', () => occupe(b, async () => {
+      const { error: e } = await sb.from('liens_suivi').update({ actif: !b.dataset.actif }).eq('code', b.dataset.basculer);
+      if (e) { toast(msgErreur(e), 'ko'); return; }
+      router();
+    })));
+  }
+
   async function vueAlertes() {
     vue.innerHTML = `<h1>Alertes</h1><div data-zone-notifs id="zone-alertes" style="max-width:560px"></div>`;
     await notifs.remplirCarte(document.getElementById('zone-alertes'));
@@ -1693,6 +1780,8 @@
       : [];
     vue.innerHTML = `
       <h1>Réglages</h1>
+      ${estSupport() ? `<a class="carte lien-carte" href="#/liens" style="display:block;text-decoration:none;color:inherit">
+        <h2>📊 Liens de suivi</h2><p class="discret" style="margin:0">Un lien par campagne de communication (Facebook, statut WhatsApp, affiche…) pour savoir combien de personnes viennent, s'inscrivent et achètent.</p></a>` : ''}
       <div class="deux-colonnes egales">
       <form class="carte" id="form-g">
         <h2>Paiement Mobile Money</h2>

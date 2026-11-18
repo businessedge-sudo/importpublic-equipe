@@ -1446,3 +1446,11 @@ fieldset.fournisseur-interne legend { font-weight: 800; padding: 0 6px; display:
 .montant-saisir span { font-size: .9em; opacity: .8; }
 .montant-saisir b { font-size: 1.25em; }
 .paiement-lien .montant-saisir .btn, .suivi-payer .montant-saisir .btn { width: auto; margin-left: auto; }
+/* Liens de suivi (équipe) */
+.lien-suivi.inactif { opacity: .6; }
+.ls-url { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 10px 0; }
+.ls-url code { flex: 1 1 200px; min-width: 0; overflow-wrap: anywhere; font-size: .82rem; background: rgba(0,0,0,.04); padding: 8px 10px; border-radius: 8px; }
+.ls-chiffres { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 8px 0 10px; }
+.ls-chiffres > div { background: rgba(0,0,0,.035); border-radius: 10px; padding: 8px 10px; }
+.ls-chiffres b { display: block; font-size: 1.15rem; }
+.ls-chiffres span { font-size: .78rem; opacity: .75; }
