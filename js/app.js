@@ -825,7 +825,7 @@
       ? `<img class="${cls}" src="${esc(imagesEquipe[d.id] || photos[d.photo_path] || imgOffre(d))}" alt="" loading="lazy">`
       : `<span class="${cls} dm-sans-photo"><span class="dm-cube">${window.ICO.colis}</span><small>Pas de photo</small></span>`;
     const prix = (d) => d.montant_devis ? `<b class="dm-prix">${fcfa(d.montant_devis)}</b>` : d.budget ? `<span class="dm-budget">Budget ${fcfa(d.budget)}</span>` : '';
-    const puces = (d) => `${d.offre_id ? '<span class="dm-puce dm-lome">📍 Disponible à Lomé</span>' : ''}<span class="dm-puce">${window.ICO.colis}${d.quantite} pièce${d.quantite > 1 ? 's' : ''}</span>
+    const puces = (d) => `${d.offre_id ? '<span class="dm-puce dm-lome">⚡ Disponible tout de suite</span>' : ''}<span class="dm-puce">${window.ICO.colis}${d.quantite} pièce${d.quantite > 1 ? 's' : ''}</span>
       ${d.mode_transport ? `<span class="dm-puce">${d.mode_transport === 'aerien' ? '✈️' : '🚢'} ${esc(lib(d.mode_transport))}</span>` : ''}
       ${d.relance_wa_a_faire ? '<span class="dm-puce dm-alerte">Relance WhatsApp</span>' : ''}
       ${sources[d.id] ? '<span class="dm-puce dm-source" title="Lien fournisseur vérifié enregistré">🔗 Lien fournisseur</span>' : ''}`;
@@ -952,7 +952,7 @@
       <a class="retour" href="#/demandes">← Sur mesure</a>
       <div class="deux-colonnes"><div class="colonne">
       <div class="carte">
-        <div style="display:flex;justify-content:space-between;gap:10px"><h1>${local ? 'Commande · Disponible à Lomé' : 'Demande'}</h1>${badge(d.statut)}</div>
+        <div style="display:flex;justify-content:space-between;gap:10px"><h1>${local ? 'Commande · Disponible tout de suite' : 'Demande'}</h1>${badge(d.statut)}</div>
         <p style="white-space:pre-line">${esc(d.description)}</p>
         ${photo ? `<a href="${esc(photo.signedUrl)}" target="_blank" rel="noopener"><img class="photo-apercu" src="${esc(photo.signedUrl)}" alt="Photo du client"></a>` : ''}
         <dl class="cle-valeur" style="margin-top:12px">

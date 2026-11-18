@@ -26,7 +26,7 @@ window.IP_OFFRES = function (ctx) {
   const telDe = (contact) => { const d = String(contact || '').replace(/\D/g, ''); return d.length >= 8 ? (d.length === 8 ? '228' + d : d) : null; };
 
   const texteWhatsApp = (o) => [
-    `📍 Disponible à Lomé : ${o.titre}`,
+    `⚡ Disponible tout de suite : ${o.titre}`,
     o.accroche || '',
     `Prix : ${fcfa(o.prix)} tout compris`,
     `Livré sous ${o.delai_heures || 48} h, ou à retirer à notre point de retrait.`,
@@ -67,7 +67,7 @@ window.IP_OFFRES = function (ctx) {
     };
 
     vue.innerHTML = `${ctx.ongletsCampagnes('offres')}
-      <div class="dm-entete"><h1>Disponible à Lomé</h1>
+      <div class="dm-entete"><h1>Disponible tout de suite</h1>
         <a class="btn btn-petit" href="#/offre/nouvel">+ Nouvel article</a></div>
       <p class="discret">Les bons plans trouvés chez un grossiste ou un commerçant de Lomé, sans stock : le client commande, vous confirmez le stock avec le fournisseur, vous envoyez le devis, il paie, puis un coursier récupère l'article. Marge minimale conseillée : <b>${fcfa(min)}</b> nets par pièce, coursier déduit (modifiable dans Réglages).</p>
       <div class="filtres">${filtres.map(([k, l]) => `<button class="${k === f ? 'actif' : ''}" data-f="${k}">${l}<span class="dm-compte">${data.filter((o) => k === 'toutes' || o.statut === k).length}</span></button>`).join('')}</div>
@@ -111,7 +111,7 @@ window.IP_OFFRES = function (ctx) {
     const sel = (v, cur) => (String(v) === String(cur) ? ' selected' : '');
 
     vue.innerHTML = `
-      <a class="retour" href="#/offres">← Disponible à Lomé</a>
+      <a class="retour" href="#/offres">← Disponible tout de suite</a>
       <div class="deux-colonnes"><div class="colonne">
       ${nouvel ? '' : `<div class="carte">
         <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><h1>${esc(o.titre)}</h1>${pastille(o.statut)}</div>

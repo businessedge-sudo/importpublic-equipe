@@ -267,7 +267,7 @@ window.IP_OPS = function (ctx) {
   const ongletsCampagnes = (actif) => `<div class="filtres onglets-campagnes">
       <a class="${actif === 'pistes' ? 'actif' : ''}" href="#/pistes">${I.loupe}Produits à l'étude</a>
       <a class="${actif === 'campagnes' ? 'actif' : ''}" href="#/campagnes">${I.colis}Campagnes</a>
-      <a class="${actif === 'offres' ? 'actif' : ''}" href="#/offres">📍 Disponible à Lomé</a></div>`;
+      <a class="${actif === 'offres' ? 'actif' : ''}" href="#/offres">⚡ Disponible tout de suite</a></div>`;
 
   // ==================================================================
   // Campagne : suivi détaillé des opérations + coûts réels
