@@ -1709,8 +1709,14 @@
           <div><b>${fcfa(l.montant_paye)}</b><span>Encaissé</span></div>
           <div><b>${pct(Number(l.commandes_payees), Number(l.visiteurs))}</b><span>Visiteurs → achat</span></div>
         </div>
-        <button type="button" class="btn btn-lien btn-petit" data-basculer="${esc(l.code)}" data-actif="${l.actif ? '1' : ''}">${l.actif ? 'Désactiver ce lien' : 'Réactiver ce lien'}</button>
+        <div class="boutons"><button type="button" class="btn btn-second btn-petit" data-modifier-lien="${esc(l.code)}">Modifier</button>
+        <button type="button" class="btn btn-lien btn-petit" data-basculer="${esc(l.code)}" data-actif="${l.actif ? '1' : ''}">${l.actif ? 'Désactiver ce lien' : 'Réactiver ce lien'}</button></div>
+        <div class="ls-edition" hidden></div>
       </div>`).join('');
+    const optionsDest = (cur) => [['', 'Accueil du site'], ...(camps || []).map((c) => ['#/campagne/' + c.id, 'Campagne : ' + c.titre]),
+      ['#/disponible', 'Disponible tout de suite'], ['#/sur-mesure', 'Commande sur mesure']]
+      .concat(cur && ![''].concat((camps || []).map((c) => '#/campagne/' + c.id), '#/disponible', '#/sur-mesure').includes(cur) ? [[cur, 'Page actuelle (' + cur + ')']] : [])
+      .map(([v, t]) => `<option value="${esc(v)}"${v === (cur || '') ? ' selected' : ''}>${esc(t)}</option>`).join('');
     vue.innerHTML = `
       <p><a href="#/reglages">← Réglages</a></p>
       <h1>Liens de suivi</h1>
@@ -1727,9 +1733,7 @@
         <label for="ls-canal">Canal</label>
         <select id="ls-canal">${CANAUX.map((c) => `<option>${esc(c)}</option>`).join('')}</select>
         <label for="ls-dest">Page d'arrivée</label>
-        <select id="ls-dest"><option value="">Accueil du site</option>
-          ${(camps || []).map((c) => `<option value="#/campagne/${c.id}">Campagne : ${esc(c.titre)}</option>`).join('')}
-          <option value="#/disponible">Disponible tout de suite</option><option value="#/sur-mesure">Commande sur mesure</option></select>
+        <select id="ls-dest">${optionsDest('')}</select>
         <label for="ls-code">Code du lien</label>
         <input id="ls-code" maxlength="40" pattern="[a-z0-9-]{2,40}" placeholder="rempli tout seul">
         <p class="aide">Lettres minuscules, chiffres et tirets. Il apparaît dans le lien : importpublic.com/?src=<b>code</b></p>
@@ -1760,6 +1764,33 @@
     vue.querySelectorAll('[data-copier-lien]').forEach((b) => b.addEventListener('click', async () => {
       try { await navigator.clipboard.writeText(b.dataset.copierLien); toast('Lien copié'); }
       catch { prompt('Copiez le lien :', b.dataset.copierLien); }
+    }));
+    vue.querySelectorAll('[data-modifier-lien]').forEach((b) => b.addEventListener('click', () => {
+      const l = (liens || []).find((x) => x.code === b.dataset.modifierLien);
+      const zone = b.closest('.lien-suivi').querySelector('.ls-edition');
+      if (!zone.hidden) { zone.hidden = true; return; }
+      zone.hidden = false;
+      zone.innerHTML = `<form class="ls-form"><hr>
+        <label>Nom</label><input name="nom" required maxlength="80" value="${esc(l.nom)}">
+        <label>Canal</label><select name="canal">${CANAUX.concat(CANAUX.includes(l.canal) || !l.canal ? [] : [l.canal]).map((c) => `<option${c === l.canal ? ' selected' : ''}>${esc(c)}</option>`).join('')}</select>
+        <label>Page d'arrivée</label><select name="dest">${optionsDest(l.destination)}</select>
+        <label>Code du lien</label><input name="code" required maxlength="40" pattern="[a-z0-9-]{2,40}" value="${esc(l.code)}">
+        <p class="aide">⚠️ Changer le code change le lien. L'ancien lien, s'il est déjà partagé, ne sera plus compté. Les chiffres déjà enregistrés sont conservés.</p>
+        <div class="boutons"><button class="btn">Enregistrer</button><button type="button" class="btn btn-lien" data-annuler>Annuler</button></div></form>`;
+      zone.querySelector('[data-annuler]').addEventListener('click', () => { zone.hidden = true; });
+      zone.querySelector('form').addEventListener('submit', (ev) => {
+        ev.preventDefault();
+        const f = ev.target;
+        occupe(f.querySelector('button:not([type])'), async () => {
+          const nouveau = slug(f.code.value);
+          if (nouveau !== l.code && (liens || []).some((x) => x.code === nouveau)) { toast('Ce code est déjà utilisé par un autre lien', 'ko'); return; }
+          if (nouveau !== l.code && !confirm(`Changer le code « ${l.code} » en « ${nouveau} » ?\n\nL'ancien lien ne sera plus compté. Pensez à repartager le nouveau.`)) return;
+          const { error: e } = await sb.from('liens_suivi').update({ nom: f.nom.value.trim(), canal: f.canal.value, destination: f.dest.value, code: nouveau }).eq('code', l.code);
+          if (e) { toast(/duplicate|unique/i.test(e.message) ? 'Ce code est déjà utilisé' : msgErreur(e), 'ko'); return; }
+          toast(nouveau !== l.code ? 'Lien modifié : copiez et repartagez le nouveau lien' : 'Lien modifié');
+          router();
+        });
+      });
     }));
     vue.querySelectorAll('[data-basculer]').forEach((b) => b.addEventListener('click', () => occupe(b, async () => {
       const { error: e } = await sb.from('liens_suivi').update({ actif: !b.dataset.actif }).eq('code', b.dataset.basculer);
