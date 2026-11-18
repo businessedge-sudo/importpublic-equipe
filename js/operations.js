@@ -266,7 +266,8 @@ window.IP_OPS = function (ctx) {
 
   const ongletsCampagnes = (actif) => `<div class="filtres onglets-campagnes">
       <a class="${actif === 'pistes' ? 'actif' : ''}" href="#/pistes">${I.loupe}Produits à l'étude</a>
-      <a class="${actif === 'campagnes' ? 'actif' : ''}" href="#/campagnes">${I.colis}Campagnes</a></div>`;
+      <a class="${actif === 'campagnes' ? 'actif' : ''}" href="#/campagnes">${I.colis}Campagnes</a>
+      <a class="${actif === 'offres' ? 'actif' : ''}" href="#/offres">📍 Disponible à Lomé</a></div>`;
 
   // ==================================================================
   // Campagne : suivi détaillé des opérations + coûts réels
@@ -286,13 +287,16 @@ window.IP_OPS = function (ctx) {
   const CATEGORIES_COUTS = ['fournisseur', 'transport', 'douane', 'local', 'autre'];
 
   // Liste à cocher partagée par les campagnes (col = campagne_id) et les demandes sur mesure (col = demande_id)
-  function checklistOps(col, id, faites) {
+  // Article disponible à Lomé : une seule étape, la récupération chez le fournisseur
+  const OPERATIONS_LOCALES = [['recupere', 'Article récupéré chez le fournisseur', 'arrivee']];
+  function checklistOps(col, id, faites, liste = OPERATIONS) {
     return {
       html: `<div class="carte"><h2>Suivi des opérations</h2>
-        <p class="discret">Cochez au fur et à mesure : chaque étape apparaît <b>aussitôt dans le suivi du client</b>, avec la date (vos notes restent internes).
+        ${liste === OPERATIONS ? `<p class="discret">Cochez au fur et à mesure : chaque étape apparaît <b>aussitôt dans le suivi du client</b>, avec la date (vos notes restent internes).
           Les étapes clés font aussi avancer le statut : fournisseur payé → Commandée, reçu à l'entrepôt → Entrepôt Chine, départ → En transit,
-          retiré à Lomé → Arrivée (création du colis et du code de retrait).</p>
-        <div class="checklist-ops">${OPERATIONS.map(([k, l, etapeClient]) => {
+          retiré à Lomé → Arrivée (création du colis et du code de retrait).</p>`
+          : `<p class="discret">Cochez quand l'article est récupéré chez le fournisseur : le client est prévenu, et le colis est créé avec son code de retrait (aussi utilisé pour la livraison).</p>`}
+        <div class="checklist-ops">${liste.map(([k, l, etapeClient]) => {
           const o = faites[k];
           return `<div class="op${o ? ' faite' : ''}">
             <button type="button" class="op-case" data-op="${k}" aria-pressed="${o ? 'true' : 'false'}" aria-label="${esc(l)}">${o ? I.coche : ''}</button>
@@ -324,7 +328,7 @@ window.IP_OPS = function (ctx) {
   async function sectionDemande(d) {
     if (!['payee', 'commandee', 'entrepot_chine', 'en_transit', 'arrivee', 'livree'].includes(d.statut)) return { html: '', brancher() {} };
     const { data } = await sb.from('operations_campagne').select('*').eq('demande_id', d.id);
-    return checklistOps('demande_id', d.id, Object.fromEntries((data || []).map((o) => [o.etape, o])));
+    return checklistOps('demande_id', d.id, Object.fromEntries((data || []).map((o) => [o.etape, o])), d.offre_id ? OPERATIONS_LOCALES : OPERATIONS);
   }
 
   // Aide au chiffrage d'un devis sur mesure : renvoie le HTML et un branchement qui remplit le champ montant

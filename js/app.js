@@ -12,6 +12,8 @@
   // Ordre de la chaîne logistique d'une campagne
   const SUITE_CAMPAGNE = ['brouillon', 'ouverte', 'quota_atteint', 'commandee', 'entrepot_chine', 'en_transit', 'arrivee', 'terminee'];
   const SUITE_DEMANDE = ['payee', 'commandee', 'entrepot_chine', 'en_transit', 'arrivee', 'livree'];
+  // Article disponible à Lomé : pas de Chine, on récupère chez le fournisseur puis on remet
+  const SUITE_LOCALE = ['payee', 'arrivee', 'livree'];
   const ACTION = {
     ouverte: 'Publier la campagne', quota_atteint: 'Marquer quota atteint', commandee: 'Commandé au fournisseur',
     entrepot_chine: 'Reçu à l\'entrepôt Chine', en_transit: 'Chargé, en route', arrivee: 'Arrivé à Lomé', terminee: 'Terminer la campagne',
@@ -113,6 +115,7 @@
     document.getElementById('nav').style.gridTemplateColumns = `repeat(${nb}, minmax(64px, 1fr))`;
 
     const onglet = { '': 'accueil', paiements: 'paiements', campagnes: 'campagnes', campagne: 'campagnes', 'bon-commande': 'campagnes', pistes: 'campagnes', piste: 'campagnes',
+                     offres: 'campagnes', offre: 'campagnes',
                      demandes: 'demandes', demande: 'demandes', colis: 'colis', reseau: 'reseau', reglages: 'reglages', utilisateurs: 'reglages',
                      messages: 'messages', alertes: 'alertes' }[m[0] || ''];
     if (estPartenaire() && onglet !== 'colis' && onglet !== 'alertes') { location.hash = '#/colis'; return; }
@@ -122,6 +125,7 @@
     const routes = { '': vueAccueil, paiements: vuePaiements, campagnes: vueCampagnes, campagne: vueCampagne,
                      demandes: vueDemandes, demande: vueDemande, colis: vueColis, reseau: vueReseau, reglages: vueReglages,
                      pistes: ops.vuePistes, piste: ops.vuePiste, utilisateurs: ops.vueUtilisateurs,
+                     offres: offresMod.vueOffres, offre: offresMod.vueOffre,
                      messages: vueMessages, alertes: vueAlertes, document: vueDocument, 'bon-commande': vueBonCommande,
                      'client-whatsapp': vueClientWhatsApp };
     vue.innerHTML = '<div class="chargement">Chargement…</div>';
@@ -779,7 +783,7 @@
     const statut = recherche ? 'toutes' : (params.get('statut') || 'nouvelle');
     const memoVue = (v) => { try { if (v) localStorage.setItem('ip_vue_demandes', v); return localStorage.getItem('ip_vue_demandes'); } catch { return v; } };
     const mode = params.get('vue') || memoVue() || 'galerie';
-    let q = sb.from('demandes').select('id,description,statut,quantite,budget,montant_devis,created_at,photo_path,mode_transport,relance_wa_a_faire,profils(nom_complet,telephone)')
+    let q = sb.from('demandes').select('id,description,statut,quantite,budget,montant_devis,created_at,photo_path,mode_transport,relance_wa_a_faire,offre_id,offres(image_url),profils(nom_complet,telephone)')
       .order('created_at', { ascending: false }).limit(100);
     if (recherche) {
       const { data: ids, error: eR } = await sb.rpc('chercher_demandes', { p_texte: recherche });
@@ -816,11 +820,12 @@
       ? ['payee', 'commandee', 'entrepot_chine', 'en_transit', 'arrivee'].includes(x.statut) : x.statut === k).length;
     const filtres = [['nouvelle', 'À chiffrer'], ['devis_envoye', 'Devis envoyés'], ['acceptee', 'À payer'], ['en_cours', 'En cours'], ['toutes', 'Toutes']];
     const initiales = (n) => (n || '?').split(/\s+/).filter(Boolean).slice(0, 2).map((x) => x[0]).join('').toUpperCase();
-    const visuel = (d, cls) => imagesEquipe[d.id] || photos[d.photo_path]
-      ? `<img class="${cls}" src="${esc(imagesEquipe[d.id] || photos[d.photo_path])}" alt="" loading="lazy">`
+    const imgOffre = (d) => (d.offres && d.offres.image_url ? urlImageCampagne(d.offres.image_url) : '');
+    const visuel = (d, cls) => imagesEquipe[d.id] || photos[d.photo_path] || imgOffre(d)
+      ? `<img class="${cls}" src="${esc(imagesEquipe[d.id] || photos[d.photo_path] || imgOffre(d))}" alt="" loading="lazy">`
       : `<span class="${cls} dm-sans-photo"><span class="dm-cube">${window.ICO.colis}</span><small>Pas de photo</small></span>`;
     const prix = (d) => d.montant_devis ? `<b class="dm-prix">${fcfa(d.montant_devis)}</b>` : d.budget ? `<span class="dm-budget">Budget ${fcfa(d.budget)}</span>` : '';
-    const puces = (d) => `<span class="dm-puce">${window.ICO.colis}${d.quantite} pièce${d.quantite > 1 ? 's' : ''}</span>
+    const puces = (d) => `${d.offre_id ? '<span class="dm-puce dm-lome">📍 Disponible à Lomé</span>' : ''}<span class="dm-puce">${window.ICO.colis}${d.quantite} pièce${d.quantite > 1 ? 's' : ''}</span>
       ${d.mode_transport ? `<span class="dm-puce">${d.mode_transport === 'aerien' ? '✈️' : '🚢'} ${esc(lib(d.mode_transport))}</span>` : ''}
       ${d.relance_wa_a_faire ? '<span class="dm-puce dm-alerte">Relance WhatsApp</span>' : ''}
       ${sources[d.id] ? '<span class="dm-puce dm-source" title="Lien fournisseur vérifié enregistré">🔗 Lien fournisseur</span>' : ''}`;
@@ -882,12 +887,17 @@
     if (!d) { vue.innerHTML = '<div class="carte vide">Demande introuvable.</div>'; return; }
     const photo = d.photo_path ? (await sb.storage.from('demandes').createSignedUrl(d.photo_path, 3600)).data : null;
     const cl = d.profils || {};
-    const i = SUITE_DEMANDE.indexOf(d.statut);
-    const suivant = i >= 0 && i < SUITE_DEMANDE.length - 1 ? SUITE_DEMANDE[i + 1] : null;
+    const suite = d.offre_id ? SUITE_LOCALE : SUITE_DEMANDE;
+    const i = suite.indexOf(d.statut);
+    const suivant = i >= 0 && i < suite.length - 1 ? suite[i + 1] : null;
     const peutChiffrer = estFinance() && ['nouvelle', 'devis_envoye'].includes(d.statut);
     const lienSuivi = `${cfg.urlSite}/#/demande/${d.id}`;
     const opsDemande = await ops.sectionDemande(d);
     const chiffrage = ops.aideChiffrage(d);
+    // Commande d'un article disponible à Lomé : article, fournisseur et marge
+    const local = !!d.offre_id;
+    const offre = local ? await offresMod.infosCommande(d) : null;
+    if (local) chiffrage.html = '';
     const [{ data: docs }, { data: paies }, { data: source }] = await Promise.all([
       sb.from('documents').select('id,numero,type,total,remplace,cree_le').eq('demande_id', d.id).order('cree_le', { ascending: false }),
       sb.from('paiements').select('id,montant,statut,operateur,numero_payeur,reference_externe').eq('demande_id', d.id),
@@ -920,7 +930,7 @@
     const devis = (docs || []).find((x) => x.type === 'devis' && !x.remplace);
     const aRembourser = d.statut === 'annulee' ? (paies || []).filter((p) => p.statut === 'confirme') : [];
     const prenom = (cl.nom_complet || '').split(' ')[0] || '';
-    const texteWa = (n) => `Bonjour ${prenom},\n\nNous revenons vers vous au sujet de votre devis${devis ? ' n° ' + devis.numero : ''} pour « ${(d.description || '').slice(0, 60)} », d'un montant de ${fcfa(d.montant_devis)}${d.type_prix === 'TTC' ? ' tout compris (transport et douane inclus).' : ' hors taxes. Les frais de douane et de livraison vous seront communiqués une fois votre colis arrivé à Lomé.'}\n\n`
+    const texteWa = (n) => `Bonjour ${prenom},\n\nNous revenons vers vous au sujet de votre devis${devis ? ' n° ' + devis.numero : ''} pour « ${(d.description || '').slice(0, 60)} », d'un montant de ${fcfa(d.montant_devis)}${d.offre_id ? ' tout compris. L\'article est disponible à Lomé, mais le stock du fournisseur peut partir vite.' : d.type_prix === 'TTC' ? ' tout compris (transport et douane inclus).' : ' hors taxes. Les frais de douane et de livraison vous seront communiqués une fois votre colis arrivé à Lomé.'}\n\n`
       + `Vous pouvez le consulter, nous poser vos questions ou procéder au paiement depuis votre page de suivi ci-dessous, ou simplement en nous répondant ici.\n\n`
       + `${n >= 4 ? 'Sans nouvelle de votre part, nous clôturerons cette demande dans quelques jours.\n\n' : ''}Merci et à bientôt,\n\nL'équipe Import Public`;
     const opt = (vals, cur, fmt) => vals.map((v) => `<option value="${v}"${Number(cur) === v ? ' selected' : ''}>${fmt(v)}</option>`).join('');
@@ -942,13 +952,13 @@
       <a class="retour" href="#/demandes">← Sur mesure</a>
       <div class="deux-colonnes"><div class="colonne">
       <div class="carte">
-        <div style="display:flex;justify-content:space-between;gap:10px"><h1>Demande</h1>${badge(d.statut)}</div>
+        <div style="display:flex;justify-content:space-between;gap:10px"><h1>${local ? 'Commande · Disponible à Lomé' : 'Demande'}</h1>${badge(d.statut)}</div>
         <p style="white-space:pre-line">${esc(d.description)}</p>
         ${photo ? `<a href="${esc(photo.signedUrl)}" target="_blank" rel="noopener"><img class="photo-apercu" src="${esc(photo.signedUrl)}" alt="Photo du client"></a>` : ''}
         <dl class="cle-valeur" style="margin-top:12px">
           <dt>Quantité</dt><dd>${d.quantite}</dd>
           <dt>Budget</dt><dd>${d.budget ? fcfa(d.budget) : '-'}</dd>
-          <dt>Transport</dt><dd>${d.mode_transport ? esc(lib(d.mode_transport)) : 'Pas de préférence'}</dd>
+          ${local ? '' : `<dt>Transport</dt><dd>${d.mode_transport ? esc(lib(d.mode_transport)) : 'Pas de préférence'}</dd>`}
           ${d.lien ? `<dt>Lien</dt><dd>${/^https?:\/\//i.test(d.lien) ? `<a href="${esc(d.lien)}" target="_blank" rel="noopener">Ouvrir le produit</a>` : esc(d.lien)}</dd>` : ''}
           <dt>Client</dt><dd>${esc(cl.nom_complet || '-')}</dd>
           <dt>Livraison</dt><dd>${esc(nomPays(cl.pays))}${cl.region ? ' · ' + esc(cl.region) : ''}</dd>
@@ -961,7 +971,7 @@
           <button type="button" class="btn btn-second btn-petit" id="cw-lien-d">Copier son lien de suivi</button>
           <p class="aide">Le message part avec son lien de suivi${cl.email ? '' : ', l\'invitation à créer son compte gratuitement et le lien du site'}. Vous le relisez dans WhatsApp avant d'envoyer.</p></div>` : ''}
       </div>
-      ${blocSource}
+      ${local ? offre.html : blocSource}
       ${estSupport() ? `<div class="carte"><h2>Discussion avec ${esc(cl.nom_complet || 'le client')}</h2>
         <p class="discret">Posez vos questions avant d'envoyer le prix. Le client répond depuis l'onglet Messages du site.</p>
         <div id="zone-chat"></div></div>` : ''}
@@ -969,11 +979,12 @@
       ${peutChiffrer ? `<form class="carte" id="form-devis">
         <h2>${d.statut === 'nouvelle' ? 'Envoyer un prix' : 'Modifier le devis'}</h2>
         ${chiffrage.html}
-        <label for="tp-d">Type de prix</label>
+        ${local ? `<p class="discret">Appelez d'abord le fournisseur pour confirmer le stock, puis envoyez le devis. Le prix est prérempli avec le prix de l'article.</p>
+          <input type="hidden" id="tp-d" value="TTC">` : `<label for="tp-d">Type de prix</label>
         <select id="tp-d"><option value="HT" ${d.type_prix !== 'TTC' ? 'selected' : ''}>Hors taxes : douane payée à l'arrivée</option>
-          <option value="TTC" ${d.type_prix === 'TTC' ? 'selected' : ''}>Tout compris (TTC) : douane incluse</option></select>
-        <label for="montant">Prix total, transport jusqu'à Lomé inclus (F CFA)</label>
-        <input id="montant" type="number" inputmode="numeric" min="1" required value="${esc(d.montant_devis || '')}">
+          <option value="TTC" ${d.type_prix === 'TTC' ? 'selected' : ''}>Tout compris (TTC) : douane incluse</option></select>`}
+        <label for="montant">${local ? 'Prix total, tout compris, hors livraison à domicile (F CFA)' : 'Prix total, transport jusqu\'à Lomé inclus (F CFA)'}</label>
+        <input id="montant" type="number" inputmode="numeric" min="1" required value="${esc(d.montant_devis || (local ? d.budget : '') || '')}">
         <label for="lienpay-d">Lien de paiement (facultatif)</label>
         <input id="lienpay-d" type="text" inputmode="url" value="${esc(d.lien_paiement || '')}" placeholder="https://… (lien généré pour ce montant)">
         <label for="note">Message au client (affiché sur le devis)</label>
@@ -995,7 +1006,7 @@
         <h2>Étape</h2>
         ${d.statut === 'acceptee' ? '<p class="discret">En attente du paiement du client. Il apparaîtra dans Paiements.</p>' : ''}
         <div class="boutons">
-          ${suivant ? `<button class="btn" id="avancer">${esc(ACTION[suivant])}</button>` : ''}
+          ${suivant ? `<button class="btn" id="avancer">${esc(local && suivant === 'arrivee' ? 'Article récupéré chez le fournisseur' : ACTION[suivant])}</button>` : ''}
           ${!['livree', 'annulee', 'refusee'].includes(d.statut) ? `<button class="btn btn-ko" id="annuler">Annuler la demande</button>` : ''}
           ${['devis_envoye', 'acceptee'].includes(d.statut) && estFinance() ? `<button type="button" class="btn btn-ok" id="approuver-demande">Approuver le paiement</button>` : ''}
           ${estAdmin() ? `<button type="button" class="btn btn-lien btn-supprimer" id="supprimer-demande">🗑 Supprimer</button>` : ''}
@@ -1004,7 +1015,7 @@
           <button class="btn" id="rembourser-dem">Marquer comme remboursé</button>` : ''}
         <div id="zone-wa"></div>
         ${['payee', 'commandee', 'entrepot_chine', 'en_transit', 'arrivee'].includes(d.statut) ? blocRetard() : ''}
-        ${['payee', 'commandee', 'entrepot_chine', 'en_transit', 'arrivee', 'livree'].includes(d.statut) ? (d.type_prix === 'TTC' ? '<div class="carte"><h2>Frais de douane</h2><p class="discret">Devis tout compris : la douane est incluse dans le prix. Rien à annoncer ni à encaisser à l\'arrivée.</p></div>' : blocDouane(d.frais_douane, false, d.douane_annoncee_le)) : ''}
+        ${['payee', 'commandee', 'entrepot_chine', 'en_transit', 'arrivee', 'livree'].includes(d.statut) ? (local ? '<div class="carte"><h2>Frais de douane</h2><p class="discret">Article acheté à Lomé : pas de douane. Seule la livraison à domicile, si le client la choisit, est en plus.</p></div>' : d.type_prix === 'TTC' ? '<div class="carte"><h2>Frais de douane</h2><p class="discret">Devis tout compris : la douane est incluse dans le prix. Rien à annoncer ni à encaisser à l\'arrivée.</p></div>' : blocDouane(d.frais_douane, false, d.douane_annoncee_le)) : ''}
       </div>
       ${blocDocs}
       ${opsDemande.html}
@@ -1132,13 +1143,18 @@
       });
     });
 
+    if (local) offre.brancher();
     const av = document.getElementById('avancer');
     if (av) av.addEventListener('click', () => occupe(av, async () => {
-      const { error } = await sb.from('demandes').update({ statut: suivant }).eq('id', d.id);
+      // Article local : l'étape « récupéré » est cochée, elle prévient le client et crée le colis avec son code
+      const { error } = local && suivant === 'arrivee'
+        ? await sb.from('operations_campagne').insert({ demande_id: d.id, etape: 'recupere' })
+        : await sb.from('demandes').update({ statut: suivant }).eq('id', d.id);
       if (error) { toast(msgErreur(error), 'ko'); return; }
       toast('Étape mise à jour');
       await vueDemande(d.id);
-      if (MSG[suivant]) proposerWa(MSG[suivant]('sur mesure'));
+      if (local && suivant === 'arrivee') proposerWa(`votre article « ${(d.description || '').slice(0, 60)} » a été récupéré chez notre fournisseur. Il est prêt : dites-nous si vous préférez le retrait ou la livraison chez vous.`);
+      else if (MSG[suivant]) proposerWa(MSG[suivant](local ? 'article' : 'sur mesure'));
     }));
 
     const an = document.getElementById('annuler');
@@ -2114,6 +2130,8 @@
 
   // Produits à l'étude, opérations, coûts, utilisateurs (operations.js)
   const ops = window.IP_OPS({ etat, vue, router: () => router(), estFinance, estAdmin, estStaff });
+  // Articles disponibles à Lomé (offres.js)
+  const offresMod = window.IP_OFFRES({ etat, vue, router: () => router(), estSupport, estStaff, ongletsCampagnes: (a) => ops.ongletsCampagnes(a) });
 
   demarrer();
 })();
